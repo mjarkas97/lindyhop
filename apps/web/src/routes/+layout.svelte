@@ -15,16 +15,18 @@
 
   .app {
     display: flex;
-    flex-direction: column;
+    justify-content: center;
     min-height: 100dvh;
     background: $color-background;
 
+    // Routes own their own padding — the dashboard pins a FAB to this box.
     &__main {
+      position: relative;
       flex: 1;
       width: 100%;
       max-width: 640px;
-      margin: 0 auto;
-      padding: 1rem 1rem safe-bottom(1rem);
+      display: flex;
+      flex-direction: column;
     }
   }
 </style>
