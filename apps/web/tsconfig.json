@@ -1,0 +1,10 @@
+{
+  "extends": ["../../tsconfig.base.json", "./.svelte-kit/tsconfig.json"],
+  "compilerOptions": {
+    "strict": true,
+    "allowJs": true,
+    "checkJs": true,
+    "sourceMap": true,
+    "verbatimModuleSyntax": true
+  }
+}
