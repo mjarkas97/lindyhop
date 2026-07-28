@@ -1,17 +1,11 @@
 {
   "permissions": {
     "allow": [
-      "Bash(timeout 15 npx expo start --tunnel --port 8085)",
-      "Bash(npx expo:*)",
-      "Bash(npm view:*)",
-      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(d.get\\('gitHead',''\\)[:8], d.get\\('_nodeVersion',''\\)\\)\")",
-      "Bash(python3 -c \" import json, sys d = json.load\\(sys.stdin\\) deps = d.get\\('dependencies', {}\\) for k in ['react-native', 'react']: if k in deps: print\\(k, deps[k]\\) \")",
-      "Bash(find /home/mjarkas/repos/lindyhop/node_modules/.pnpm/react-native-safe-area-context@5.7.0* -name \"*.js\")",
-      "Bash(pnpm --filter @lindyhop/mobile start)"
+      "Bash(command -v npx)",
+      "Bash(corepack pnpm@9 --version)",
+      "Bash(corepack pnpm@9 install --filter @lindyhop/web)",
+      "Bash(corepack pnpm@10 --version)",
+      "Bash(corepack pnpm@10 install --filter @lindyhop/web --config.confirmModulesPurge=false)"
     ]
-  },
-  "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "supabase"
-  ]
+  }
 }
