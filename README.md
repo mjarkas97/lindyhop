@@ -75,6 +75,10 @@ docker compose start app
 | `DATABASE_PATH` | `/data/lindyhop.db` | |
 | `VIDEO_DIR` | `/data/videos` | |
 
+## License
+
+MIT — see [LICENSE](LICENSE).
+
 ## Layout
 
 ```
