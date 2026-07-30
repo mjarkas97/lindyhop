@@ -17,6 +17,10 @@ const CACHE = `lindyhop-${version}`
 const PRECACHE = [...build, ...files]
 const CACHEABLE = new Set(PRECACHE)
 
+// Shown when a navigation cannot reach the server. It lives in `static/`, so it
+// is already part of `files` and gets precached with everything else.
+const OFFLINE = '/offline.html'
+
 sw.addEventListener('install', (event) => {
   event.waitUntil(
     caches
@@ -43,8 +47,23 @@ sw.addEventListener('fetch', (event) => {
   if (url.origin !== location.origin) return
 
   // Every asset here is content-hashed or a static file, so a hit is always
-  // correct and never needs revalidating. Anything else is left alone.
-  if (!CACHEABLE.has(url.pathname)) return
+  // correct and never needs revalidating.
+  if (CACHEABLE.has(url.pathname)) {
+    event.respondWith(
+      caches.open(CACHE).then((cache) => cache.match(url.pathname).then((hit) => hit ?? fetch(request)))
+    )
+    return
+  }
 
-  event.respondWith(caches.open(CACHE).then((cache) => cache.match(url.pathname).then((hit) => hit ?? fetch(request))))
+  // Documents still always go to the network — caching an authenticated page
+  // would leak it to the next user and hide the redirect to /login. The only
+  // thing added here is a fallback for when the network is not there at all.
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(async () => {
+        const cached = await caches.open(CACHE).then((cache) => cache.match(OFFLINE))
+        return cached ?? Response.error()
+      })
+    )
+  }
 })

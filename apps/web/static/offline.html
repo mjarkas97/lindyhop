@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <title>Keine Verbindung — LindyHop</title>
+    <!--
+      Served by the service worker when a navigation cannot reach the server.
+      Standalone windows have no URL bar, so without this the browser's own error
+      page reads as "the app is broken" rather than "you are offline".
+
+      Deliberately self-contained: it has to render when nothing else loads.
+    -->
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100dvh;
+        margin: 0;
+        padding: 2rem 1.5rem;
+        background: #0a0a0a;
+        color: #ffffff;
+        font-family: system-ui, -apple-system, sans-serif;
+        text-align: center;
+      }
+
+      .emoji {
+        font-size: 3rem;
+      }
+
+      h1 {
+        margin: 0.75rem 0 0;
+        font-size: 1.125rem;
+        font-weight: 600;
+      }
+
+      p {
+        margin: 0.5rem 0 0;
+        max-width: 22rem;
+        color: #a3a3a3;
+        font-size: 0.875rem;
+        line-height: 1.6;
+      }
+
+      button {
+        margin-top: 1.75rem;
+        padding: 0.875rem 2rem;
+        border: none;
+        border-radius: 1rem;
+        background: #f59e0b;
+        color: #0a0a0a;
+        font-size: 1rem;
+        font-weight: 700;
+        font-family: inherit;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <p class="emoji">📡</p>
+    <h1>Keine Verbindung</h1>
+    <p>
+      Deine Einträge liegen auf dem Server, daher braucht LindyHop eine Verbindung. Sobald du
+      wieder online bist, geht es weiter.
+    </p>
+    <button type="button" onclick="location.reload()">Erneut versuchen</button>
+  </body>
+</html>
