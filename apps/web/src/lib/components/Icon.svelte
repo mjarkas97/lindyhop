@@ -1,12 +1,13 @@
 <script lang="ts" module>
-  // Replaces @expo/vector-icons. Only the glyphs the app actually uses.
+  // Hand-rolled rather than an icon package: only the glyphs the app actually uses.
   export type IconName = keyof typeof PATHS
 
   const PATHS = {
     search:    'M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14M16.2 16.2 21 21',
     close:     'M6 6 18 18M18 6 6 18',
     clear:     'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18M9 9l6 6M15 9l-6 6',
-    cloud:     'M7.5 18.5h9a3.75 3.75 0 0 0 .4-7.48A5.75 5.75 0 0 0 5.9 11.2a3.65 3.65 0 0 0 1.6 7.3Z',
+    user:      'M12 11.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7M5 20c0-3.3 3.1-5.5 7-5.5s7 2.2 7 5.5',
+    globe:     'M12 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18M3.5 12h17M12 3.2c2.2 2.4 3.4 5.5 3.4 8.8s-1.2 6.4-3.4 8.8c-2.2-2.4-3.4-5.5-3.4-8.8S9.8 5.6 12 3.2',
     add:       'M12 5v14M5 12h14',
     play:      'M9 5.5 19 12 9 18.5Z',
     document:  'M7 3h7l4 4v14H7ZM14 3v4h4M9.5 12.5h6M9.5 16h4',

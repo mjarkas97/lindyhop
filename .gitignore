@@ -1,1 +1,6 @@
 node_modules/
+.env
+# Local dev database and videos, when DATABASE_PATH / VIDEO_DIR are unset.
+.data/
+# pnpm falls back to a project-local store when no global store-dir is configured.
+.pnpm-store/

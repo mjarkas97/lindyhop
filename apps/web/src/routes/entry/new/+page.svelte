@@ -2,22 +2,17 @@
   import { goto } from '$app/navigation'
   import EntryForm from '$lib/components/EntryForm.svelte'
   import Icon from '$lib/components/Icon.svelte'
-  import { createEntry, type EntryInput } from '$lib/db/queries'
+  import { createEntry, type EntryInput } from '$lib/api/entries'
   import { reload } from '$lib/stores/entries'
-  import { deleteVideo } from '$lib/videoStorage'
 
-  // A video picked and then abandoned by cancelling would otherwise sit in OPFS
-  // forever with no entry pointing at it.
-  let pendingVideo: string | null = null
-
+  // A video picked and then abandoned by cancelling is collected by the server's
+  // orphan sweep — nothing to clean up here.
   async function cancel() {
-    if (pendingVideo) await deleteVideo(pendingVideo)
     await goto('/')
   }
 
   async function save(values: EntryInput) {
     await createEntry(values)
-    pendingVideo = null
     reload()
     await goto('/')
   }
@@ -31,11 +26,7 @@
   <span class="head__spacer"></span>
 </header>
 
-<EntryForm
-  submitLabel="Speichern"
-  onvideochange={(uri) => (pendingVideo = uri)}
-  onsubmit={save}
-/>
+<EntryForm submitLabel="Speichern" onsubmit={save} />
 
 <style lang="scss">
   @use '$lib/styles/tokens' as *;

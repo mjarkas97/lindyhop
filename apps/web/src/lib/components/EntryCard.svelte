@@ -1,8 +1,8 @@
 <script lang="ts">
   import Highlight from './Highlight.svelte'
   import Icon from './Icon.svelte'
-  import { ART_LABELS } from '$lib/db/schema'
-  import type { Entry } from '$lib/db/queries'
+  import { ART_LABELS } from '$lib/shared/entry'
+  import type { Entry } from '$lib/api/entries'
 
   interface Props {
     entry:   Entry

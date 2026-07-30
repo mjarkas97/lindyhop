@@ -1,19 +1,18 @@
 <script lang="ts">
+  import { goto } from '$app/navigation'
   import Icon from '$lib/components/Icon.svelte'
-  import { clearConfig, loadConfig, saveConfig } from '$lib/nextcloud'
+  import { changePassword, logout } from '$lib/api/auth'
+  import { user } from '$lib/stores/user'
 
   const STATUS_MS = 4000
 
-  const stored = loadConfig()
-
-  let serverUrl = $state(stored?.serverUrl ?? '')
-  let username = $state(stored?.username ?? '')
-  let password = $state(stored?.password ?? '')
+  let currentPassword = $state('')
+  let newPassword = $state('')
+  let repeatPassword = $state('')
   let formError = $state<string | null>(null)
   let status = $state<string | null>(null)
+  let busy = $state(false)
   let statusTimer: ReturnType<typeof setTimeout> | null = null
-
-  let isConfigured = $derived(serverUrl.trim() !== '' && username.trim() !== '')
 
   function showStatus(message: string) {
     status = message
@@ -21,25 +20,36 @@
     statusTimer = setTimeout(() => (status = null), STATUS_MS)
   }
 
-  function save(event: SubmitEvent) {
+  async function save(event: SubmitEvent) {
     event.preventDefault()
-    if (!serverUrl.trim() || !username.trim() || !password.trim()) {
+    if (!currentPassword || !newPassword) {
       formError = 'Bitte fülle alle Felder aus.'
       return
     }
+    if (newPassword !== repeatPassword) {
+      formError = 'Die neuen Passwörter stimmen nicht überein.'
+      return
+    }
+
     formError = null
-    saveConfig({ serverUrl: serverUrl.trim(), username: username.trim(), password })
-    showStatus('Einstellungen gespeichert')
+    busy = true
+    try {
+      await changePassword(currentPassword, newPassword)
+      currentPassword = ''
+      newPassword = ''
+      repeatPassword = ''
+      showStatus('Passwort geändert. Andere Geräte wurden abgemeldet.')
+    } catch (err) {
+      formError = err instanceof Error ? err.message : 'Passwort konnte nicht geändert werden.'
+    } finally {
+      busy = false
+    }
   }
 
-  function clear() {
-    if (!confirm('Zugangsdaten entfernen? Dies löscht nur die gespeicherte Server-Konfiguration, nicht deine lokalen Daten.')) return
-    clearConfig()
-    serverUrl = ''
-    username = ''
-    password = ''
-    formError = null
-    showStatus('Zugangsdaten entfernt')
+  async function signOut() {
+    await logout()
+    user.set(null)
+    await goto('/login')
   }
 </script>
 
@@ -47,52 +57,41 @@
   <a class="head__action" href="/" aria-label="Zurück">
     <Icon name="back" color="#ffffff" />
   </a>
-  <h1 class="head__title">NextCloud Sync</h1>
+  <h1 class="head__title">Konto</h1>
   <span class="head__spacer"></span>
 </header>
 
 <form class="form" onsubmit={save}>
   <div class="form__fields">
-    <h2 class="section">Server-Verbindung</h2>
+    <h2 class="section">Angemeldet als</h2>
+    <p class="account">{$user?.username ?? '…'}</p>
+
+    <h2 class="section section--spaced">Passwort ändern</h2>
 
     <label class="field">
-      <span class="field__label">Server-URL</span>
-      <input
-        class="field__input"
-        type="url"
-        inputmode="url"
-        bind:value={serverUrl}
-        placeholder="https://nextcloud.example.com"
-        autocapitalize="none"
-        autocorrect="off"
-      />
-    </label>
-
-    <label class="field">
-      <span class="field__label">Benutzername</span>
-      <input
-        class="field__input"
-        bind:value={username}
-        placeholder="Benutzername"
-        autocapitalize="none"
-        autocorrect="off"
-        autocomplete="username"
-      />
-    </label>
-
-    <label class="field">
-      <span class="field__label">Passwort / App-Passwort</span>
+      <span class="field__label">Aktuelles Passwort</span>
       <input
         class="field__input"
         type="password"
-        bind:value={password}
-        placeholder="Passwort"
+        bind:value={currentPassword}
         autocomplete="current-password"
       />
-      <span class="field__hint">
-        Nutze ein NextCloud App-Passwort — es wird unverschlüsselt in diesem Browser gespeichert
-        und lässt sich jederzeit widerrufen.
-      </span>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Neues Passwort</span>
+      <input class="field__input" type="password" bind:value={newPassword} autocomplete="new-password" />
+      <span class="field__hint">Mindestens 8 Zeichen.</span>
+    </label>
+
+    <label class="field">
+      <span class="field__label">Neues Passwort wiederholen</span>
+      <input
+        class="field__input"
+        type="password"
+        bind:value={repeatPassword}
+        autocomplete="new-password"
+      />
     </label>
 
     {#if formError}
@@ -105,10 +104,10 @@
   </div>
 
   <div class="form__actions">
-    <button class="submit" type="submit">Speichern</button>
-    {#if isConfigured}
-      <button class="destructive" type="button" onclick={clear}>Zugangsdaten entfernen</button>
-    {/if}
+    <button class="submit" type="submit" disabled={busy}>
+      {busy ? 'Bitte warten …' : 'Passwort ändern'}
+    </button>
+    <button class="destructive" type="button" onclick={signOut}>Abmelden</button>
   </div>
 </form>
 
@@ -164,6 +163,16 @@
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.15em;
+
+    &--spaced {
+      margin-top: 2rem;
+    }
+  }
+
+  .account {
+    margin-top: 0.5rem;
+    font-size: 1.125rem;
+    font-weight: 700;
   }
 
   .field {
@@ -233,6 +242,11 @@
     font-size: 1rem;
     font-weight: 700;
     cursor: pointer;
+
+    &:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
   }
 
   .destructive {

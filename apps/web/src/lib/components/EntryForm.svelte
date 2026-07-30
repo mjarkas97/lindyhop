@@ -8,21 +8,24 @@
     TAKTZAHL_VALUES,
     type Art,
     type Taktzahl,
-  } from '$lib/db/schema'
-  import { listAllTags, type EntryInput } from '$lib/db/queries'
+  } from '$lib/shared/entry'
+  import { listAllTags, type EntryInput } from '$lib/api/entries'
 
   const ART_OPTIONS = ART_VALUES.map((value) => ({ value, label: ART_LABELS[value] }))
   const TAKT_OPTIONS = TAKTZAHL_VALUES.map((value) => ({ value, label: String(value) }))
+  const VISIBILITY_OPTIONS = [
+    { value: false, label: 'Privat' },
+    { value: true, label: 'Öffentlich' },
+  ]
   const MAX_SUGGESTIONS = 8
 
   interface Props {
-    initial?:      Partial<EntryInput>
-    submitLabel:   string
-    onsubmit:      (values: EntryInput) => void | Promise<void>
-    onvideochange?: (uri: string | null) => void
+    initial?:    Partial<EntryInput>
+    submitLabel: string
+    onsubmit:    (values: EntryInput) => void | Promise<void>
   }
 
-  let { initial, submitLabel, onsubmit, onvideochange }: Props = $props()
+  let { initial, submitLabel, onsubmit }: Props = $props()
 
   // Seed the fields once, on purpose. These are the user's working copy from
   // here on — re-deriving them from `initial` would overwrite what they type.
@@ -36,6 +39,7 @@
   let videoUri = $state<string | null>(seed.video_uri ?? null)
   let tags = $state(seed.tags ?? '')
   let note = $state(seed.note ?? '')
+  let isPublic = $state(seed.is_public ?? false)
   let saving = $state(false)
   let nameError = $state<string | null>(null)
 
@@ -63,11 +67,6 @@
     tags = [...tokens.existingTokens, tag].join(', ') + ', '
   }
 
-  function handleVideoChange(next: string | null) {
-    videoUri = next
-    onvideochange?.(next)
-  }
-
   async function submit(event: SubmitEvent) {
     event.preventDefault()
     const trimmed = name.trim()
@@ -85,6 +84,7 @@
         video_uri: videoUri,
         tags: normalizeTagString(tags),
         note: note.trim(),
+        is_public: isPublic,
       })
     } finally {
       saving = false
@@ -132,8 +132,16 @@
     </div>
 
     <div class="field">
+      <span class="field__label">Sichtbarkeit</span>
+      <Segmented options={VISIBILITY_OPTIONS} value={isPublic} onchange={(next) => (isPublic = next)} />
+      <span class="field__hint">
+        Öffentliche Einträge sind für alle angemeldeten Nutzer sichtbar.
+      </span>
+    </div>
+
+    <div class="field">
       <span class="field__label">Video</span>
-      <VideoPicker value={videoUri} onchange={handleVideoChange} />
+      <VideoPicker value={videoUri} onchange={(next) => (videoUri = next)} />
     </div>
 
     <div class="field">

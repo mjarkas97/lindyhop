@@ -1,7 +1,18 @@
 <script lang="ts">
   import '$lib/styles/global.scss'
+  import { page } from '$app/state'
+  import { loadUser } from '$lib/stores/user'
 
   let { children } = $props()
+
+  // /login and /register are the only pages reachable without a session, so
+  // asking who we are there would just 401.
+  const ANONYMOUS = ['/login', '/register']
+
+  $effect(() => {
+    if (ANONYMOUS.includes(page.url.pathname)) return
+    void loadUser()
+  })
 </script>
 
 <div class="app">

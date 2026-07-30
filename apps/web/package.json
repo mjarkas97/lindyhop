@@ -7,14 +7,18 @@
     "prepare": "svelte-kit sync",
     "dev": "vite dev",
     "build": "vite build",
+    "start": "node dist/index.js",
     "preview": "vite preview",
     "typecheck": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
   },
+  "dependencies": {
+    "@node-rs/argon2": "^2.0.2"
+  },
   "devDependencies": {
-    "@sqlite.org/sqlite-wasm": "3.53.0-build1",
-    "@sveltejs/adapter-static": "^3.0.0",
+    "@sveltejs/adapter-node": "^5.2.12",
     "@sveltejs/kit": "^2.0.0",
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "@types/node": "^24.0.0",
     "sass": "^1.77.0",
     "svelte": "^5.0.0",
     "svelte-check": "^4.0.0",

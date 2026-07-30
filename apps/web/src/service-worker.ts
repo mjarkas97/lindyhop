@@ -4,19 +4,18 @@
 // SvelteKit registers this file automatically in production builds, so nothing
 // in the app calls navigator.serviceWorker itself.
 //
-// Only the shell is cached. Entries, tags and videos live in OPFS, not over
-// HTTP, so once the shell is served offline the app is fully usable.
+// Only the hashed, immutable build assets are cached. Documents and /api/ go
+// straight to the network every time: entries now live on the server behind a
+// session, so a cached page would be one user's view served to the next, and a
+// cached shell would hide the redirect to /login.
 
 import { build, files, version } from '$service-worker'
 
 const sw = self as unknown as ServiceWorkerGlobalScope
 
 const CACHE = `lindyhop-${version}`
-
-// adapter-static's SPA fallback document is not part of `build` or `files`, so
-// it is fetched by URL and cached under '/' — every route offline resolves to it.
-const FALLBACK = '/'
-const PRECACHE = [...build, ...files, FALLBACK]
+const PRECACHE = [...build, ...files]
+const CACHEABLE = new Set(PRECACHE)
 
 sw.addEventListener('install', (event) => {
   event.waitUntil(
@@ -43,19 +42,9 @@ sw.addEventListener('fetch', (event) => {
   const url = new URL(request.url)
   if (url.origin !== location.origin) return
 
-  event.respondWith(respond(request, url))
+  // Every asset here is content-hashed or a static file, so a hit is always
+  // correct and never needs revalidating. Anything else is left alone.
+  if (!CACHEABLE.has(url.pathname)) return
+
+  event.respondWith(caches.open(CACHE).then((cache) => cache.match(url.pathname).then((hit) => hit ?? fetch(request))))
 })
-
-async function respond(request: Request, url: URL): Promise<Response> {
-  const cache = await caches.open(CACHE)
-
-  const precached = await cache.match(url.pathname)
-  if (precached) return precached
-
-  if (request.mode === 'navigate') {
-    const fallback = await cache.match(FALLBACK)
-    if (fallback) return fallback
-  }
-
-  return fetch(request)
-}

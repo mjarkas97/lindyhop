@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from './Icon.svelte'
-  import { deleteVideo, persistVideo, videoUrl } from '$lib/videoStorage'
+  import { persistVideo, videoUrl } from '$lib/api/videos'
 
   interface Props {
     value:    string | null
@@ -11,33 +11,12 @@
 
   let busy = $state(false)
   let failure = $state<string | null>(null)
-  let src = $state<string | null>(null)
+
+  // A plain server path now, so there is no object URL to build or revoke.
+  let src = $derived(videoUrl(value))
 
   let uploadInput: HTMLInputElement
   let recordInput: HTMLInputElement
-
-  // Object URLs are revoked when the source changes or the component goes away —
-  // a long list of previews otherwise leaks a blob per entry.
-  $effect(() => {
-    const uri = value
-    let url: string | null = null
-    let cancelled = false
-
-    void videoUrl(uri).then((next) => {
-      if (cancelled) {
-        if (next) URL.revokeObjectURL(next)
-        return
-      }
-      url = next
-      src = next
-    })
-
-    return () => {
-      cancelled = true
-      if (url) URL.revokeObjectURL(url)
-      src = null
-    }
-  })
 
   async function accept(event: Event) {
     const input = event.currentTarget as HTMLInputElement
@@ -48,9 +27,9 @@
     busy = true
     failure = null
     try {
-      const persisted = await persistVideo(file)
-      if (value) await deleteVideo(value)
-      onchange(persisted)
+      // The replaced file is dropped by the server when the entry is saved; an
+      // upload that never gets saved is collected by the orphan sweep.
+      onchange(await persistVideo(file))
     } catch (err) {
       failure = err instanceof Error ? err.message : 'Video konnte nicht geladen werden.'
     } finally {
@@ -58,10 +37,8 @@
     }
   }
 
-  async function clear() {
-    const previous = value
+  function clear() {
     onchange(null)
-    await deleteVideo(previous)
   }
 </script>
 

@@ -1,5 +1,5 @@
 import { get, writable } from 'svelte/store'
-import { listEntries, type Entry, type ListEntriesOptions } from '$lib/db/queries'
+import { listEntries, type Entry, type ListEntriesOptions } from '$lib/api/entries'
 
 export const options = writable<ListEntriesOptions>({})
 export const entries = writable<Entry[]>([])

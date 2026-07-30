@@ -18,8 +18,10 @@
 
   let hasFilters = $derived(search.trim() !== '' || art !== null)
 
+  // Same store as the dashboard — whichever of the two is mounted owns the
+  // options, and `scope` is the only thing that differs.
   $effect(() => {
-    options.set({ search, art, sort })
+    options.set({ search, art, sort, scope: 'public' })
   })
 
   function resetFilters() {
@@ -29,18 +31,14 @@
 </script>
 
 <header class="head">
+  <a class="head__action" href="/" aria-label="Zurück">
+    <Icon name="back" color="#ffffff" />
+  </a>
   <div>
-    <p class="head__eyebrow">LindyHop</p>
-    <h1 class="head__title">Deine Einträge</h1>
+    <p class="head__eyebrow">Entdecken</p>
+    <h1 class="head__title">Geteilte Einträge</h1>
   </div>
-  <div class="head__actions">
-    <a class="head__action" href="/discover" aria-label="Entdecken">
-      <Icon name="globe" color="#a3a3a3" />
-    </a>
-    <a class="head__action" href="/settings" aria-label="Konto">
-      <Icon name="user" color="#a3a3a3" />
-    </a>
-  </div>
+  <span class="head__spacer"></span>
 </header>
 
 <div class="search">
@@ -101,25 +99,24 @@
   <p class="state state__error">{$error}</p>
 {:else if $entries.length === 0}
   <div class="state">
-    <p class="state__emoji">{hasFilters ? '🔎' : '💃'}</p>
-    <p class="state__title">{hasFilters ? 'Keine Treffer' : 'Noch keine Einträge'}</p>
+    <p class="state__emoji">{hasFilters ? '🔎' : '🌍'}</p>
+    <p class="state__title">{hasFilters ? 'Keine Treffer' : 'Noch nichts geteilt'}</p>
     <p class="state__hint">
       {hasFilters
         ? 'Passe Suche oder Filter an, um mehr zu sehen.'
-        : 'Tippe auf das Plus, um deinen ersten Eintrag zu erstellen.'}
+        : 'Sobald jemand einen Eintrag öffentlich stellt, erscheint er hier.'}
     </p>
   </div>
 {:else}
   <ul class="list">
     {#each $entries as entry (entry.id)}
-      <li><EntryCard {entry} {search} /></li>
+      <li>
+        <p class="owner">{entry.owner_username}</p>
+        <EntryCard {entry} {search} />
+      </li>
     {/each}
   </ul>
 {/if}
-
-<a class="fab" href="/entry/new" aria-label="Neuer Eintrag">
-  <Icon name="add" size={28} color="#0a0a0a" />
-</a>
 
 <style lang="scss">
   @use '$lib/styles/tokens' as *;
@@ -128,6 +125,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 0.75rem;
     padding: 1rem 1.25rem 0.75rem;
 
     &__eyebrow {
@@ -136,17 +134,14 @@
       font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.15em;
+      text-align: center;
     }
 
     &__title {
       margin-top: 0.25rem;
-      font-size: 1.5rem;
+      font-size: 1.25rem;
       font-weight: 700;
-    }
-
-    &__actions {
-      display: flex;
-      gap: 0.5rem;
+      text-align: center;
     }
 
     &__action {
@@ -158,6 +153,11 @@
       border: 1px solid $color-border;
       border-radius: 999px;
       background: $color-card;
+      flex: none;
+    }
+
+    &__spacer {
+      width: 2.5rem;
       flex: none;
     }
   }
@@ -174,7 +174,6 @@
 
     &__input {
       flex: 1;
-      min-width: 0;
       padding: 0.75rem 0;
       border: none;
       background: none;
@@ -185,7 +184,6 @@
         color: $color-text-muted;
       }
 
-      // Chrome draws its own clear button on type=search; we ship one.
       &::-webkit-search-cancel-button {
         display: none;
       }
@@ -201,13 +199,13 @@
   }
 
   .filters {
-    margin: 1rem 1.25rem 0;
+    padding: 1rem 1.25rem 0;
 
     &__label {
-      margin-bottom: 0.5rem;
-      color: $color-text-muted;
-      font-size: 0.625rem;
-      font-weight: 700;
+      margin: 0 0 0.5rem;
+      color: $color-text-secondary;
+      font-size: 0.75rem;
+      font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.15em;
     }
@@ -247,13 +245,20 @@
     flex-direction: column;
     gap: 0.75rem;
     margin: 0;
-    padding: 0.5rem 1.25rem safe-bottom(6rem);
+    padding: 0.5rem 1.25rem safe-bottom(2rem);
     list-style: none;
+  }
+
+  .owner {
+    margin: 0 0 0.375rem 0.25rem;
+    color: $color-text-muted;
+    font-size: 0.75rem;
+    font-weight: 600;
   }
 
   .state {
     margin-top: 4rem;
-    padding: 0 1.5rem safe-bottom(6rem);
+    padding: 0 1.5rem safe-bottom(2rem);
     text-align: center;
 
     &__emoji {
@@ -275,24 +280,6 @@
 
     &__error {
       color: $color-error;
-    }
-  }
-
-  .fab {
-    position: fixed;
-    right: 1.25rem;
-    bottom: safe-bottom(1rem);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 3.5rem;
-    height: 3.5rem;
-    border-radius: 999px;
-    background: $color-accent;
-    box-shadow: 0 8px 24px rgb(0 0 0 / 45%);
-
-    &:active {
-      opacity: 0.8;
     }
   }
 </style>
