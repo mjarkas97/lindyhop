@@ -72,7 +72,7 @@ Set in `/srv/data/lindyhop/lindyhop.env`.
 | Variable | Default | |
 |---|---|---|
 | `ORIGIN` | — | **Required.** Public URL, exactly as the browser sees it. |
-| `PORT` | `3000` | Port the app listens on. |
+| `PORT` | `9930` | Port the app listens on. |
 | `HOST` | `0.0.0.0` | Set `127.0.0.1` when a proxy on the same host is the only client. |
 | `BODY_SIZE_LIMIT` | `1073741824` | Max upload in bytes. adapter-node's own default is 512 KB, which rejects every real video. |
 | `DATABASE_PATH` | `/data/lindyhop.db` | |

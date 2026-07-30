@@ -49,7 +49,7 @@ set +a
 run_pm2() {
   sudo -u "$PM2_USER" env \
     ORIGIN="$ORIGIN" \
-    PORT="${PORT:-3000}" \
+    PORT="${PORT:-9930}" \
     HOST="${HOST:-0.0.0.0}" \
     DATABASE_PATH="$DATABASE_PATH" \
     VIDEO_DIR="$VIDEO_DIR" \

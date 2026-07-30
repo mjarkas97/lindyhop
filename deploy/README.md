@@ -45,7 +45,7 @@ overwrite it on every deploy.
 
 ```sh
 ORIGIN=https://lindyhop.example.com
-PORT=3000
+PORT=9930
 HOST=127.0.0.1
 DATABASE_PATH=/srv/data/lindyhop/lindyhop.db
 VIDEO_DIR=/srv/data/lindyhop/videos
