@@ -6,7 +6,13 @@ import { startVideoSweeper } from '$lib/server/videos'
 // Routes reachable without a session. Everything else — pages and API alike —
 // requires one.
 const PUBLIC_ROUTES = new Set(['/login', '/register'])
-const PUBLIC_API = new Set(['/api/auth/login', '/api/auth/register', '/api/auth/logout'])
+const PUBLIC_API = new Set([
+  '/api/auth/login',
+  '/api/auth/register',
+  '/api/auth/logout',
+  // The container healthcheck runs before anyone is logged in.
+  '/api/health',
+])
 
 // Runs once when the server starts, and — unlike module scope — not during the
 // build's analyse pass, so neither the env check nor touching the data volume

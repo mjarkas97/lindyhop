@@ -34,27 +34,35 @@ The first account to register becomes the admin. Registration is open after that
 ```sh
 pnpm install
 pnpm --filter @lindyhop/web dev
+pnpm --filter @lindyhop/web test        # authorization rules
+pnpm --filter @lindyhop/web typecheck
 ```
 
 Data lands in `apps/web/.data/` when `DATABASE_PATH` / `VIDEO_DIR` are unset.
-Needs Node ≥ 23.4 for flagless `node:sqlite`; the images use Node 24.
+
+**Needs Node ≥ 23.4** for the flagless `node:sqlite` import; the images use Node 24.
+`engine-strict` is on, so an older Node fails at `pnpm install` rather than with an
+unresolved-module error at runtime.
 
 Or in a container: `docker compose --profile dev up`.
 
 ## Your data
 
-Everything lives in the `lindyhop-data` volume, mounted at `/data`:
+Bind-mounted from `/srv/data/lindyhop/data` on the host to `/data` in the container:
 
 ```
 /data/lindyhop.db   SQLite database — users, sessions, entries
 /data/videos/       one file per uploaded video
 ```
 
-Rebuilding or replacing the image never touches it. To back up, copy the volume:
+Rebuilding or replacing the image never touches it. To back up, stop the container
+and copy the directory — SQLite in WAL mode leaves `-wal` and `-shm` files that must
+travel with the database:
 
 ```sh
-docker run --rm -v lindyhop-data:/data -v "$PWD:/backup" \
-  busybox tar czf /backup/lindyhop-backup.tar.gz -C /data .
+docker compose stop app
+tar czf lindyhop-backup.tar.gz -C /srv/data/lindyhop/data .
+docker compose start app
 ```
 
 ## Configuration

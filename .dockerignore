@@ -2,6 +2,8 @@
 **/.svelte-kit
 **/dist
 **/.data
+# Never let real credentials into a build layer.
+**/.env
 .git
 .turbo
 .claude

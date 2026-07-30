@@ -4,3 +4,5 @@ node_modules/
 .data/
 # pnpm falls back to a project-local store when no global store-dir is configured.
 .pnpm-store/
+# Per-machine Claude Code permissions, not shared state.
+.claude/settings.local.json
