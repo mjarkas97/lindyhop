@@ -1,0 +1,50 @@
+#!/bin/bash
+# Start or reload the app under PM2.
+#
+#   lindyhop-restart /srv/vhosts/lindyhop
+#
+# The original ran `pm2 start npm -- run start`, which cannot work: the root
+# package.json has no `start` script — only apps/web does. PM2 now runs the
+# adapter-node output directly, which also means one fewer process in the tree.
+
+set -euo pipefail
+
+PROJECT_DIR=$1
+PROJECT_NAME=lindyhop
+ENTRY="$PROJECT_DIR/apps/web/dist/index.js"
+
+# Deployment configuration lives outside the working directory on purpose:
+# `git checkout -f` and the chown/chmod in lindyhop-build would otherwise clobber
+# it on every deploy.
+ENV_FILE=/srv/data/lindyhop/lindyhop.env
+
+if [ ! -f "$ENTRY" ]; then
+  echo "No build at $ENTRY — did lindyhop-build run?" >&2
+  exit 1
+fi
+
+if [ ! -f "$ENV_FILE" ]; then
+  echo "Missing $ENV_FILE. See deploy/README.md." >&2
+  exit 1
+fi
+
+# set -a exports everything the file defines, so PM2 inherits it.
+set -a
+# shellcheck source=/dev/null
+. "$ENV_FILE"
+set +a
+
+# Fail here rather than after the app is already serving. ORIGIN in particular
+# is silent until someone tries to log in: adapter-node rejects every POST whose
+# Origin does not match, so a wrong value looks like a broken login form.
+: "${ORIGIN:?must be set in $ENV_FILE — the public URL, exactly as the browser sees it}"
+: "${DATABASE_PATH:?must be set in $ENV_FILE}"
+: "${VIDEO_DIR:?must be set in $ENV_FILE}"
+
+echo "Restarting $PROJECT_NAME ..."
+# --update-env so a changed env file takes effect on reload, not just on start.
+pm2 reload "$PROJECT_NAME" --update-env \
+  || pm2 start "$ENTRY" --name "$PROJECT_NAME" --update-env
+
+pm2 save
+echo "$PROJECT_NAME is running."

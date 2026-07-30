@@ -1,0 +1,22 @@
+#!/bin/bash
+# Goes in the bare repo at /srv/repositories/lindyhop.git/hooks/post-receive
+#
+# `set -e` is the important part: without it a failed checkout does not stop the
+# deploy, and the app gets reloaded over a tree that was never updated. That is
+# what happened on the deploy that produced "Permission denied" and then went on
+# to run npm, fail, and reload PM2 regardless.
+
+set -euo pipefail
+
+BARE_REPO=/srv/repositories/lindyhop.git
+WORKING_DIR=/srv/vhosts/lindyhop
+BRANCH=master
+
+# The checkout consumes stdin (the oldrev/newrev/refname lines), so it has to
+# read it directly rather than through a pipe that later steps also want.
+sudo /srv/scripts/lindyhop-checkout "$BARE_REPO" "$WORKING_DIR" "$BRANCH"
+
+sudo /srv/scripts/lindyhop-build "$WORKING_DIR"
+sudo /srv/scripts/lindyhop-restart "$WORKING_DIR"
+
+echo "Deploy finished."
