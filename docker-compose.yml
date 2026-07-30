@@ -1,0 +1,34 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      # Must be the externally visible URL, or adapter-node rejects every POST.
+      ORIGIN: ${ORIGIN:?set ORIGIN in .env}
+      # adapter-node defaults to 512K, which rejects every real video.
+      BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT:-1073741824}
+    volumes:
+      # The whole point: the database and the videos outlive any image rebuild.
+      - lindyhop-data:/data
+
+  # docker compose --profile dev up
+  dev:
+    profiles: [dev]
+    image: node:22-bookworm-slim
+    working_dir: /repo
+    command: sh -c "corepack enable && pnpm install && pnpm --filter @lindyhop/web dev --host 0.0.0.0"
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/repo
+      # Keeps the container's own node_modules — the host's are built for a
+      # different platform and the native addons would not load.
+      - dev-node-modules:/repo/node_modules
+
+volumes:
+  lindyhop-data:
+  dev-node-modules:

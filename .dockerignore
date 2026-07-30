@@ -1,0 +1,8 @@
+**/node_modules
+**/.svelte-kit
+**/dist
+**/.data
+.git
+.turbo
+.claude
+package-lock.json
