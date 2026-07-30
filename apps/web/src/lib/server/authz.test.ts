@@ -11,6 +11,8 @@ import {
   updateEntry,
 } from './entries'
 import { canReadVideo, isValidVideoName } from './videos'
+import { countAdmins, deleteUser, getUser, listUsers, setAdmin } from './admin'
+import { isRegistrationOpen, setRegistrationOpen } from './settings'
 import type { EntryInput } from '$lib/shared/entry'
 
 // These are the rules where a regression is actually dangerous: everything that
@@ -37,6 +39,7 @@ let bob: User
 beforeEach(async () => {
   // Cascades take entries and sessions with them, so this is a full reset.
   getDb().exec('DELETE FROM users')
+  getDb().exec('DELETE FROM settings')
   alice = (await createUser('alice', PASSWORD))!
   bob = (await createUser('bob', PASSWORD))!
 })
@@ -170,6 +173,72 @@ describe('reading a video', () => {
     expect(isValidVideoName('/etc/passwd')).toBe(false)
     expect(isValidVideoName('nice-try.mp4')).toBe(false)
     expect(isValidVideoName(`${NAME}/../../secret`)).toBe(false)
+  })
+})
+
+describe('registration setting', () => {
+  it('is open until something closes it', () => {
+    expect(isRegistrationOpen()).toBe(true)
+  })
+
+  it('survives being toggled both ways', () => {
+    setRegistrationOpen(false)
+    expect(isRegistrationOpen()).toBe(false)
+    setRegistrationOpen(true)
+    expect(isRegistrationOpen()).toBe(true)
+  })
+})
+
+describe('admin overview', () => {
+  it('counts entries, public entries and videos per user', () => {
+    createEntry(alice.id, entry({ is_public: true, video_uri: '00000000-0000-4000-8000-000000000000.mp4' }))
+    createEntry(alice.id, entry())
+    createEntry(bob.id, entry({ is_public: true }))
+
+    const rows = listUsers()
+    const a = rows.find((r) => r.username === 'alice')!
+    const b = rows.find((r) => r.username === 'bob')!
+
+    expect(a.entries).toBe(2)
+    expect(a.public_entries).toBe(1)
+    expect(a.videos).toBe(1)
+    expect(b.entries).toBe(1)
+    expect(b.public_entries).toBe(1)
+    expect(b.videos).toBe(0)
+  })
+
+  it('lists a user with no entries rather than dropping them', () => {
+    // A LEFT JOIN written as an inner one would silently hide new accounts.
+    const rows = listUsers()
+    expect(rows).toHaveLength(2)
+    expect(rows.find((r) => r.username === 'bob')!.entries).toBe(0)
+  })
+
+  it('reports no storage when a row points at a file that is gone', () => {
+    createEntry(alice.id, entry({ video_uri: '00000000-0000-4000-8000-000000000000.mp4' }))
+    expect(listUsers().find((r) => r.username === 'alice')!.storage).toBe(0)
+  })
+})
+
+describe('admin actions', () => {
+  it('counts admins', () => {
+    expect(countAdmins()).toBe(1)
+    setAdmin(bob.id, true)
+    expect(countAdmins()).toBe(2)
+  })
+
+  it('reports whether a target is an admin, which gates the last-admin check', () => {
+    expect(getUser(alice.id)?.is_admin).toBe(true)
+    expect(getUser(bob.id)?.is_admin).toBe(false)
+    expect(getUser(9999)).toBeNull()
+  })
+
+  it('takes a user’s entries with them', () => {
+    const id = createEntry(bob.id, entry())
+    deleteUser(bob.id)
+    expect(getUser(bob.id)).toBeNull()
+    expect(getEntry(id, bob.id)).toBeNull()
+    expect(listUsers()).toHaveLength(1)
   })
 })
 

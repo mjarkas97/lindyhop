@@ -26,3 +26,9 @@ export async function me(): Promise<User> {
 export function changePassword(currentPassword: string, newPassword: string): Promise<{ ok: true }> {
   return postJson<{ ok: true }>('/api/auth/password', { currentPassword, newPassword })
 }
+
+/** Whether signups are accepted. Readable while logged out, for /login and /register. */
+export async function registrationOpen(): Promise<boolean> {
+  const { open } = await request<{ open: boolean }>('/api/auth/registration')
+  return open
+}

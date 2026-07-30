@@ -66,6 +66,10 @@
     <h2 class="section">Angemeldet als</h2>
     <p class="account">{$user?.username ?? '…'}</p>
 
+    {#if $user?.is_admin}
+      <a class="admin-link" href="/admin">Verwaltung öffnen</a>
+    {/if}
+
     <h2 class="section section--spaced">Passwort ändern</h2>
 
     <label class="field">
@@ -173,6 +177,14 @@
     margin-top: 0.5rem;
     font-size: 1.125rem;
     font-weight: 700;
+  }
+
+  .admin-link {
+    display: inline-block;
+    margin-top: 0.75rem;
+    color: $color-accent;
+    font-size: 0.875rem;
+    font-weight: 600;
   }
 
   .field {

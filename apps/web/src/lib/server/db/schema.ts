@@ -36,6 +36,14 @@ const MIGRATIONS: string[] = [
   CREATE INDEX idx_entries_public  ON entries(is_public, created_at DESC);
   CREATE INDEX idx_sessions_expiry ON sessions(expires_at);
   `,
+
+  // Instance settings the admin panel can change without a redeploy.
+  `
+  CREATE TABLE settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+  `,
 ]
 
 /**

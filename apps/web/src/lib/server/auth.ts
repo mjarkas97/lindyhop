@@ -6,7 +6,7 @@ import { SECURE_COOKIES } from './env'
 
 export const SESSION_COOKIE = 'session'
 
-const SESSION_MS = 30 * 24 * 60 * 60 * 1000
+export const SESSION_MS = 30 * 24 * 60 * 60 * 1000
 /** Past this point a still-valid session gets its expiry pushed back out. */
 const RENEW_MS = 15 * 24 * 60 * 60 * 1000
 
@@ -116,6 +116,11 @@ export function validateCredentials(username: unknown, password: unknown): strin
     return `Passwort: mindestens ${MIN_PASSWORD} Zeichen.`
   }
   return null
+}
+
+/** Whether the instance has been bootstrapped at all. */
+export function hasAnyUser(): boolean {
+  return (queryOne<{ n: number }>('SELECT COUNT(*) AS n FROM users')!).n > 0
 }
 
 export async function createUser(username: string, password: string): Promise<User | null> {

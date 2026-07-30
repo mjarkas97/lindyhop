@@ -10,9 +10,16 @@ const PUBLIC_API = new Set([
   '/api/auth/login',
   '/api/auth/register',
   '/api/auth/logout',
+  // /login and /register both need to know whether signups are open.
+  '/api/auth/registration',
   // The container healthcheck runs before anyone is logged in.
   '/api/health',
 ])
+
+/** The path itself or anything beneath it — never a sibling like `/adminfoo`. */
+function isUnder(path: string, prefix: string): boolean {
+  return path === prefix || path.startsWith(`${prefix}/`)
+}
 
 // Runs once when the server starts, and — unlike module scope — not during the
 // build's analyse pass, so neither the env check nor touching the data volume
@@ -41,6 +48,21 @@ export const handle: Handle = async ({ event, resolve }) => {
         headers: { 'content-type': 'application/json' },
       })
     }
+    // 404 rather than 403: a 403 tells a curious signed-in user that an admin
+    // API exists and that they are not it.
+    //
+    // Both forms, deliberately. `startsWith('/api/admin/')` alone misses the
+    // bare `/api/admin`, which is the endpoint that returns every username.
+    if (isUnder(path, '/api/admin') && !user?.is_admin) {
+      return new Response(JSON.stringify({ error: 'Nicht gefunden.' }), {
+        status: 404,
+        headers: { 'content-type': 'application/json' },
+      })
+    }
+  } else if (user && isUnder(path, '/admin') && !user.is_admin) {
+    // Same reasoning for the page: a non-admin is sent home as though the route
+    // were not there.
+    throw redirect(303, '/')
   } else if (!user && !PUBLIC_ROUTES.has(path)) {
     // The app renders on the client, so this is the only place a logged-out
     // visitor can be turned away before any of the shell reaches them.
