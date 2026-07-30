@@ -100,13 +100,32 @@ absolute path to the right binary.
 Afterwards, in this order:
 
 ```sh
-sudo corepack enable                  # shims live in the Node install; a new Node needs it again
-pm2 update                            # restarts the PM2 daemon under the new Node
+sudo corepack enable                            # shims live in the Node install; a new Node needs it again
+sudo -u www-data pm2 update                     # restarts the PM2 daemon under the new Node
 sudo rm -rf /srv/vhosts/lindyhop/node_modules   # once, to clear anything built for the old runtime
 ```
 
 `pm2 update` is the one that gets missed: without it the daemon keeps running the
-old Node in memory and the app is restarted under it.
+old Node in memory and restarts the app under it.
+
+**PM2 runs as `www-data`.** Its process list is per user, under `$HOME/.pm2`, so a
+bare `pm2 list` as yourself or under `sudo` talks to a different, empty daemon.
+Always `sudo -u www-data pm2 ...`.
+
+### Two Node installations
+
+This server had a manual Node in `/usr/local/bin` shadowing the apt one in
+`/usr/bin`, and `which node` only ever showed the winner:
+
+```sh
+which node && node -v        # /usr/local/bin/node — manual install
+dpkg -l | grep -w nodejs     # /usr/bin/node — apt package, a different version
+sudo -i node -v              # what the deploy scripts actually see
+```
+
+Installing a newer Node through apt does **not** help while the `/usr/local` copy
+is still first on `PATH`. Remove it, then confirm with `sudo -i node -v` — that is
+the version the scripts get, and the only one that matters here.
 
 Then push again, or re-run the scripts by hand:
 
