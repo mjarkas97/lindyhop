@@ -1,7 +1,7 @@
 #!/bin/bash
 # Install dependencies and build. Run by post-receive after the checkout.
 #
-#   lindyhop-build /srv/vhosts/lindyhop
+#   lindyhop-helper /srv/vhosts/lindyhop
 #
 # Replaces an `npm ci --omit=dev` + `npm run build` pair that could not work
 # against this repo:

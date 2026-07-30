@@ -13,8 +13,16 @@ reloads under PM2.
 
 ## Install
 
+Names match what is already on the server:
+
+| Script | Does |
+|---|---|
+| `lindyhop-checkout` | backs the tree up, then checks out the pushed branch |
+| `lindyhop-helper` | installs dependencies and builds |
+| `lindyhop-deploy` | starts or reloads PM2 |
+
 ```sh
-sudo cp deploy/lindyhop-{checkout,build,restart} /srv/scripts/
+sudo cp deploy/lindyhop-{checkout,helper,deploy} /srv/scripts/
 sudo chmod +x /srv/scripts/lindyhop-*
 cp deploy/post-receive /srv/repositories/lindyhop.git/hooks/
 chmod +x /srv/repositories/lindyhop.git/hooks/post-receive
@@ -23,16 +31,16 @@ chmod +x /srv/repositories/lindyhop.git/hooks/post-receive
 The `chmod +x` is what the `Permission denied` on `/srv/scripts/lindyhop-checkout`
 was about — the hook could not execute it.
 
-The `git` user runs the scripts through `sudo`, so `visudo` needs:
+The `git` user runs the scripts through `sudo`, so `visudo` needs all three:
 
 ```
-git ALL=(ALL) NOPASSWD: /srv/scripts/lindyhop-checkout, /srv/scripts/lindyhop-build, /srv/scripts/lindyhop-restart
+git ALL=(ALL) NOPASSWD: /srv/scripts/lindyhop-checkout, /srv/scripts/lindyhop-helper, /srv/scripts/lindyhop-deploy
 ```
 
 ## Configuration
 
 `/srv/data/lindyhop/lindyhop.env`, deliberately **outside** the working tree —
-`git checkout -f` and the `chown`/`chmod` in `lindyhop-build` would otherwise
+`git checkout -f` and the `chown`/`chmod` in `lindyhop-helper` would otherwise
 overwrite it on every deploy.
 
 ```sh
@@ -52,7 +60,7 @@ with "Cross-site POST form submissions are forbidden".
 every real video.
 
 The PM2 process needs write access to `/srv/data/lindyhop/`. It must not point at
-anything inside `/srv/vhosts/lindyhop`, which `lindyhop-build` chmods to `570`.
+anything inside `/srv/vhosts/lindyhop`, which `lindyhop-helper` chmods to `570`.
 
 ## Requirements
 

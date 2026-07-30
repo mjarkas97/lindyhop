@@ -1,7 +1,7 @@
 #!/bin/bash
 # Start or reload the app under PM2.
 #
-#   lindyhop-restart /srv/vhosts/lindyhop
+#   lindyhop-deploy /srv/vhosts/lindyhop
 #
 # The original ran `pm2 start npm -- run start`, which cannot work: the root
 # package.json has no `start` script — only apps/web does. PM2 now runs the
@@ -14,12 +14,12 @@ PROJECT_NAME=lindyhop
 ENTRY="$PROJECT_DIR/apps/web/dist/index.js"
 
 # Deployment configuration lives outside the working directory on purpose:
-# `git checkout -f` and the chown/chmod in lindyhop-build would otherwise clobber
+# `git checkout -f` and the chown/chmod in lindyhop-helper would otherwise clobber
 # it on every deploy.
 ENV_FILE=/srv/data/lindyhop/lindyhop.env
 
 if [ ! -f "$ENTRY" ]; then
-  echo "No build at $ENTRY — did lindyhop-build run?" >&2
+  echo "No build at $ENTRY — did lindyhop-helper run?" >&2
   exit 1
 fi
 
