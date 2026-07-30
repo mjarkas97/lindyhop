@@ -71,6 +71,50 @@ outright rather than failing later with an unresolved-module error.
 pnpm comes from `corepack enable`, pinned by `packageManager` in the root
 `package.json`.
 
+### Upgrading Node
+
+`node:sqlite` arrived in 22.5.0, so nothing below that can run this app under any
+flag.
+
+First find out how Node got there — it decides everything else:
+
+```sh
+which node && node -v
+dpkg -l | grep -i nodejs      # apt or NodeSource
+ls ~/.nvm ~/.fnm 2>/dev/null  # per-user version manager
+```
+
+**If it is apt / NodeSource** (installs to `/usr/bin`, visible to every user):
+
+```sh
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt-get install -y nodejs
+node -v
+```
+
+**If it is nvm or fnm**, mind that the deploy scripts run under `sudo` and so get
+**root's** `PATH`, not the git user's. A version manager installed for one user is
+invisible to them. Either install Node system-wide as above, or give the scripts an
+absolute path to the right binary.
+
+Afterwards, in this order:
+
+```sh
+sudo corepack enable                  # shims live in the Node install; a new Node needs it again
+pm2 update                            # restarts the PM2 daemon under the new Node
+sudo rm -rf /srv/vhosts/lindyhop/node_modules   # once, to clear anything built for the old runtime
+```
+
+`pm2 update` is the one that gets missed: without it the daemon keeps running the
+old Node in memory and the app is restarted under it.
+
+Then push again, or re-run the scripts by hand:
+
+```sh
+sudo /srv/scripts/lindyhop-helper /srv/vhosts/lindyhop
+sudo /srv/scripts/lindyhop-deploy /srv/vhosts/lindyhop
+```
+
 ## Why not npm
 
 The previous scripts ran `npm ci --omit=dev` and `npm run build`. Neither could
