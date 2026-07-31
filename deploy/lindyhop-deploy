@@ -27,8 +27,8 @@ BACKUP_DIR=/srv/backups/$PROJECT_NAME
 BACKUP_PATH=$BACKUP_DIR/$PROJECT_NAME-data-$(date +"%Y-%m-%d-%H%M%S").tar.gz
 
 if [ ! -f "$ENV_FILE" ]; then
-  echo "Missing $ENV_FILE. See deploy/README.md." >&2
-  exit 1
+    echo "Missing $ENV_FILE. See deploy/README.md." >&2
+    exit 1
 fi
 
 set -a
@@ -52,11 +52,11 @@ chown -R 1000:1000 "$DATA_DIR"
 # --env-file rather than a service-level env_file: PORT is interpolated at the
 # compose level to pick the published host port, which env_file cannot reach.
 compose() {
-  docker compose \
-    --env-file "$ENV_FILE" \
-    --file "$PROJECT_DIR/docker-compose.yml" \
-    --project-name "$PROJECT_NAME" \
-    "$@"
+    docker compose \
+        --env-file "$ENV_FILE" \
+        --file "$PROJECT_DIR/docker-compose.yml" \
+        --project-name "$PROJECT_NAME" \
+        "$@"
 }
 
 # Build before stopping anything. This is the slow step and it has no effect on
@@ -84,10 +84,10 @@ chmod 700 "$BACKUP_DIR"
 # the site down and leave it down. A failed snapshot should cancel the deploy, not
 # the service.
 if ! tar -czf "$BACKUP_PATH" -C "$DATA_ROOT" .; then
-  echo "Snapshot failed. Restarting the previous container and stopping here." >&2
-  rm -f "$BACKUP_PATH"
-  compose start || true
-  exit 1
+    echo "Snapshot failed. Restarting the previous container and stopping here." >&2
+    rm -f "$BACKUP_PATH"
+    compose start || true
+    exit 1
 fi
 
 # Keep the seven most recent. The glob is deliberately narrower than
@@ -108,8 +108,8 @@ echo "$PROJECT_NAME is running on ${BIND_ADDR:-127.0.0.1}:${PORT:-9930}, ORIGIN=
 # than the tree it just checked out — including this very file. Last, not first:
 # post-receive's output travels back over the push, and the tail is what you read.
 for script in lindyhop-checkout lindyhop-deploy; do
-  if ! cmp -s "/srv/scripts/$script" "$PROJECT_DIR/deploy/$script"; then
-    echo "WARNING: /srv/scripts/$script is out of date." >&2
-    echo "         sudo cp $PROJECT_DIR/deploy/$script /srv/scripts/" >&2
-  fi
+    if ! cmp -s "/srv/scripts/$script" "$PROJECT_DIR/deploy/$script"; then
+        echo "WARNING: /srv/scripts/$script is out of date." >&2
+        echo "         sudo cp $PROJECT_DIR/deploy/$script /srv/scripts/" >&2
+    fi
 done

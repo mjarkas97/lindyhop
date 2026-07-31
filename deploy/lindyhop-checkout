@@ -23,8 +23,8 @@ mkdir -p "$WORKING_DIR"
 # The hook's stdin is the oldrev/newrev/refname lines, and this loop consumes
 # them — hence reading it directly rather than through a pipe.
 while read -r oldrev newrev refname; do
-  if [ "$refname" = "refs/heads/$BRANCH" ]; then
-    echo "Checking out $BRANCH ..."
-    git --work-tree="$WORKING_DIR" --git-dir="$BARE_REPO" checkout -f "$BRANCH"
-  fi
+    if [ "$refname" = "refs/heads/$BRANCH" ]; then
+        echo "Checking out $BRANCH ..."
+        git --work-tree="$WORKING_DIR" --git-dir="$BARE_REPO" checkout -f "$BRANCH"
+    fi
 done
