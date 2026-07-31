@@ -1,52 +1,30 @@
 #!/bin/bash
-# Back up the working tree, then check the pushed branch out into it.
+# Check the pushed branch out into the working tree.
 #
 #   lindyhop-checkout /srv/repositories/lindyhop.git /srv/vhosts/lindyhop master
 #
-# Unchanged from the original except for `set -euo pipefail` and reading stdin
-# once. Without those, a failed checkout still returned 0 and the deploy carried
-# on to install, build and reload PM2 over a working tree that was never updated.
+# It used to tar the working tree up first. That made sense when the tree was the
+# thing that ran; now it is only a build context and every byte of it is already
+# in the bare repo one directory over. The backup moved to lindyhop-deploy, which
+# snapshots /srv/data/lindyhop instead — the part that is not in git.
+#
+# `set -euo pipefail` matters: without it a failed checkout still returned 0 and
+# the deploy carried on to build and start a container from a tree that was never
+# updated.
 
 set -euo pipefail
-
-PROJECT_NAME="lindyhop"
-DATE=$(date +"%Y-%m-%d-%H%M%S")
 
 BARE_REPO=$1
 WORKING_DIR=$2
 BRANCH=$3
 
-BACKUP_DIR="/srv/backups/$PROJECT_NAME"
-BACKUP_PATH="$BACKUP_DIR/$PROJECT_NAME-$DATE.tar.gz"
+mkdir -p "$WORKING_DIR"
 
-# ================== BACKUP ==================
-
-echo "Creating backup at $BACKUP_PATH..."
-mkdir -p "$BACKUP_DIR"
-
-# Only back up an existing tree — the first deploy has nothing to save.
-if [ -d "$WORKING_DIR" ]; then
-  tar --exclude='node_modules' \
-      --exclude='.git' \
-      --exclude='tmp' \
-      -czf "$BACKUP_PATH" \
-      -C "$(dirname "$WORKING_DIR")" "$(basename "$WORKING_DIR")"
-  echo "Backup completed."
-else
-  mkdir -p "$WORKING_DIR"
-  echo "No existing tree to back up."
-fi
-
-# ================== CHECKOUT ==================
-
+# The hook's stdin is the oldrev/newrev/refname lines, and this loop consumes
+# them — hence reading it directly rather than through a pipe.
 while read -r oldrev newrev refname; do
   if [ "$refname" = "refs/heads/$BRANCH" ]; then
-    echo "Checking out changes..."
+    echo "Checking out $BRANCH ..."
     git --work-tree="$WORKING_DIR" --git-dir="$BARE_REPO" checkout -f "$BRANCH"
   fi
 done
-
-# ================== CLEANUP OLD BACKUPS ==================
-
-# Keep the seven most recent; the original kept everything.
-ls -1t "$BACKUP_DIR/$PROJECT_NAME-"*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm --

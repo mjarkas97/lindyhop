@@ -46,10 +46,14 @@ git push production master
 
 `origin` is GitHub and is only a mirror — GitHub does not run `post-receive` hooks.
 
-The container publishes plain HTTP on `127.0.0.1:9930`; a reverse proxy in front of
-it terminates TLS. **`ORIGIN` must match the URL the browser actually uses** —
-adapter-node compares it against the `Origin` header on every POST, so a wrong value
-breaks login with "Cross-site POST form submissions are forbidden".
+By default the container publishes plain HTTP on `127.0.0.1:9930` and a reverse proxy
+in front of it terminates TLS. `BIND_ADDR=0.0.0.0` publishes it to the network
+instead, reachable at `http://<server-ip>:9930` — see [Reaching it by IP](deploy/README.md#reaching-it-by-ip-without-a-proxy)
+for what that costs you.
+
+**`ORIGIN` must match the URL the browser actually uses** — adapter-node compares it
+against the `Origin` header on every POST, so a wrong value breaks login with
+"Cross-site POST form submissions are forbidden".
 
 ## Your data
 
@@ -64,8 +68,13 @@ never touches it. `lindyhop.env` sits beside it rather than inside it, out of th
 container's reach. Both are outside the working tree, so a deploy's `git checkout -f`
 leaves them alone.
 
-To back up, stop the container first — SQLite in WAL mode leaves `-wal` and `-shm`
-files that must travel with the database:
+Every deploy snapshots all of it to `/srv/backups/lindyhop/`, keeping the last seven.
+That is a safety net for a bad migration, not a backup schedule — it only fires when
+you push. See [deploy/README.md](deploy/README.md#snapshots).
+
+To take one by hand, stop the container first: SQLite in WAL mode leaves `-wal` and
+`-shm` files that must travel with the database, and a copy taken mid-write may not
+restore.
 
 ```sh
 docker compose -p lindyhop stop
@@ -80,7 +89,8 @@ Set in `/srv/data/lindyhop/lindyhop.env`.
 | Variable | Default | |
 |---|---|---|
 | `ORIGIN` | — | **Required.** Public URL, exactly as the browser sees it. |
-| `PORT` | `9930` | Host port, published on `127.0.0.1` only. The container always listens on 3000. |
+| `PORT` | `9930` | Host port. The container always listens on 3000 internally. |
+| `BIND_ADDR` | `127.0.0.1` | Host interface the port is published on. `0.0.0.0` exposes it to the network, which then has to be the `ORIGIN`. |
 | `BODY_SIZE_LIMIT` | `1073741824` | Max upload in bytes. adapter-node's own default is 512 KB, which rejects every real video. |
 
 `DATABASE_PATH` and `VIDEO_DIR` are pinned by the Dockerfile to `/data/lindyhop.db`

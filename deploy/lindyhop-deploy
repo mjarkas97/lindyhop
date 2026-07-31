@@ -1,6 +1,6 @@
 #!/bin/bash
-# Build the image and (re)start the container. Run by post-receive after the
-# checkout.
+# Build the image, snapshot the data, and (re)start the container. Run by
+# post-receive after the checkout.
 #
 #   lindyhop-deploy /srv/vhosts/lindyhop
 #
@@ -13,13 +13,18 @@ set -euo pipefail
 PROJECT_DIR=$1
 PROJECT_NAME=lindyhop
 
-# Deployment configuration lives outside the working directory on purpose:
-# `git checkout -f` would otherwise clobber it on every deploy.
-ENV_FILE=/srv/data/lindyhop/lindyhop.env
+# Everything that is not in git lives here: the database, the videos and the
+# deployment configuration. Deliberately outside the working directory, which
+# `git checkout -f` overwrites on every deploy.
+DATA_ROOT=/srv/data/lindyhop
+ENV_FILE=$DATA_ROOT/lindyhop.env
 
-# The bind mount target. A subdirectory of /srv/data/lindyhop, so lindyhop.env
-# next to it stays out of reach of the container.
-DATA_DIR=/srv/data/lindyhop/data
+# The bind mount target. A subdirectory, so lindyhop.env beside it stays out of
+# reach of the container.
+DATA_DIR=$DATA_ROOT/data
+
+BACKUP_DIR=/srv/backups/$PROJECT_NAME
+BACKUP_PATH=$BACKUP_DIR/$PROJECT_NAME-data-$(date +"%Y-%m-%d-%H%M%S").tar.gz
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "Missing $ENV_FILE. See deploy/README.md." >&2
@@ -44,8 +49,6 @@ echo "Preparing $DATA_DIR ..."
 mkdir -p "$DATA_DIR/videos"
 chown -R 1000:1000 "$DATA_DIR"
 
-echo "Building and starting $PROJECT_NAME ..."
-
 # --env-file rather than a service-level env_file: PORT is interpolated at the
 # compose level to pick the published host port, which env_file cannot reach.
 compose() {
@@ -56,7 +59,43 @@ compose() {
     "$@"
 }
 
-compose up -d --build --remove-orphans
+# Build before stopping anything. This is the slow step and it has no effect on
+# the data, so the old container goes on serving throughout.
+echo "Building $PROJECT_NAME ..."
+compose build
+
+# The snapshot has to happen with the database quiescent: SQLite in WAL mode can
+# be mid-write, and a tar of a live .db plus its -wal is not guaranteed to
+# restore. A no-op on the first deploy, when there is nothing running yet.
+echo "Stopping $PROJECT_NAME ..."
+compose stop
+
+# Taken before the new container starts, so this is the state to roll back to if
+# a migration goes wrong. Same layout as the manual backup in README.md:
+# ./data/lindyhop.db and ./lindyhop.env at the root of the archive.
+echo "Snapshotting $DATA_ROOT to $BACKUP_PATH ..."
+mkdir -p "$BACKUP_DIR"
+
+# Password hashes and lindyhop.env end up in here. It used to hold source code and
+# nothing else.
+chmod 700 "$BACKUP_DIR"
+
+# `set -e` would abort with the container still stopped, so a full disk would take
+# the site down and leave it down. A failed snapshot should cancel the deploy, not
+# the service.
+if ! tar -czf "$BACKUP_PATH" -C "$DATA_ROOT" .; then
+  echo "Snapshot failed. Restarting the previous container and stopping here." >&2
+  rm -f "$BACKUP_PATH"
+  compose start || true
+  exit 1
+fi
+
+# Keep the seven most recent. The glob is deliberately narrower than
+# "$PROJECT_NAME-"*: it must not match the old working-tree tarballs.
+ls -1t "$BACKUP_DIR/$PROJECT_NAME-data-"*.tar.gz 2>/dev/null | tail -n +8 | xargs -r rm --
+
+echo "Starting $PROJECT_NAME ..."
+compose up -d --remove-orphans
 
 # Layers from the previous build are unreferenced now and would accumulate on
 # every deploy.

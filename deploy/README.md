@@ -9,7 +9,7 @@ image and starts the container.
 /srv/scripts/                    the two scripts in this directory
 /srv/data/lindyhop/lindyhop.env  configuration
 /srv/data/lindyhop/data/         database and videos, bind-mounted at /data
-/srv/backups/lindyhop/           tarballs, last 7 kept
+/srv/backups/lindyhop/           data snapshots, last 7 kept
 ```
 
 `origin` is GitHub and is a plain mirror — **GitHub does not run `post-receive` hooks.**
@@ -23,8 +23,8 @@ git push production master
 
 | Script | Does |
 |---|---|
-| `lindyhop-checkout` | backs the tree up, then checks out the pushed branch |
-| `lindyhop-deploy` | builds the image and starts the container |
+| `lindyhop-checkout` | checks out the pushed branch into the working tree |
+| `lindyhop-deploy` | builds the image, snapshots the data, starts the container |
 
 ```sh
 sudo cp deploy/lindyhop-{checkout,deploy} /srv/scripts/
@@ -56,6 +56,10 @@ that matters is the one in the image, not the one on `PATH`.
 
 Nothing in the image needs a C toolchain either — SQLite is built into Node as
 `node:sqlite`, and `@node-rs/argon2` ships prebuilt binaries.
+
+Reboot survival comes from `restart: unless-stopped` in the compose file. There is
+nothing to remember and nothing to save — Docker brings the container back on its
+own.
 
 ## Configuration
 
@@ -127,24 +131,45 @@ Get it wrong and the container starts, then fails its healthcheck against
 precisely so this shows up as **unhealthy** rather than as a container that looks
 up and serves errors.
 
-## Migrating off PM2
+## Snapshots
 
-The app previously ran under PM2 as `www-data`. It never successfully started —
-its entry was `pm2 start npm -- run start`, against a root `start` script that does
-not exist. Remove it once:
+`lindyhop-deploy` tars `/srv/data/lindyhop` into
+`/srv/backups/lindyhop/lindyhop-data-<date>.tar.gz` on every deploy, keeping the
+seven most recent. The archive holds `./data/` and `./lindyhop.env` — the database,
+the videos and the configuration, which is everything on the box that is not in
+git.
+
+The order is what makes it correct: **build, stop, snapshot, start.** Building is
+the slow step and touches no data, so the old container keeps serving through it.
+The stop is not optional — SQLite in WAL mode can be mid-write, and a tar of a live
+`.db` alongside its `-wal` is not guaranteed to restore. And because the snapshot is
+taken before the *new* container starts, it is the state to roll back to when a
+migration goes wrong.
+
+`/srv/backups/lindyhop` holds password hashes, so the script keeps it at `chmod 700`.
+It used to contain nothing but source code; that is no longer true.
+
+**This is a pre-deploy safety net, not a backup schedule.** It fires when you deploy,
+while the data changes every day — go a month without pushing and the newest snapshot
+is a month old. For real backups, put a systemd timer or a cron job on the same
+`docker compose -p lindyhop stop` / `tar` / `start` sequence, and copy the result off
+the machine.
+
+To restore, stop the container, **clear the old data directory**, extract, and put the
+ownership back:
 
 ```sh
-sudo -u www-data pm2 delete lindyhop
-sudo -u www-data pm2 save
-sudo rm -rf /srv/vhosts/lindyhop/node_modules   # stale host install
+docker compose -p lindyhop stop
+sudo rm -rf /srv/data/lindyhop/data
+sudo tar xzf /srv/backups/lindyhop/lindyhop-data-<date>.tar.gz -C /srv/data/lindyhop
+sudo chown -R 1000:1000 /srv/data/lindyhop/data
+docker compose -p lindyhop start
 ```
 
-PM2 keeps its process list per user under `$HOME/.pm2`, so `sudo -u www-data` is
-required — a bare `pm2 list` talks to a different, empty daemon. Other apps on the
-daemon are unaffected.
-
-Reboot survival comes from `restart: unless-stopped` in the compose file; there is
-no `pm2 save` equivalent to remember.
+The `rm -rf` is not optional. A cleanly stopped SQLite checkpoints and deletes its
+`-wal` and `-shm`, so the archive usually has neither — extracting over a live
+directory would restore an old `.db` next to the *current* `-wal` and hand SQLite two
+inconsistent halves of different databases.
 
 ## Why not npm
 
@@ -157,5 +182,3 @@ uses pnpm:
 - `--omit=dev` drops vite, svelte, adapter-node, sass and turbo. The build needs
   all of them. The Dockerfile installs everything, builds, and only then reduces to
   a production tree with `pnpm --prod deploy`.
-- `pm2 start npm -- run start` expected a root `start` script that does not exist;
-  only `apps/web` has one.
