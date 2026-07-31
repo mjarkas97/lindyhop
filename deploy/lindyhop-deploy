@@ -103,3 +103,13 @@ docker image prune -f >/dev/null
 
 compose ps
 echo "$PROJECT_NAME is running on ${BIND_ADDR:-127.0.0.1}:${PORT:-9930}, ORIGIN=$ORIGIN."
+
+# These scripts are installed by hand, so a deploy can quietly run a version older
+# than the tree it just checked out — including this very file. Last, not first:
+# post-receive's output travels back over the push, and the tail is what you read.
+for script in lindyhop-checkout lindyhop-deploy; do
+  if ! cmp -s "/srv/scripts/$script" "$PROJECT_DIR/deploy/$script"; then
+    echo "WARNING: /srv/scripts/$script is out of date." >&2
+    echo "         sudo cp $PROJECT_DIR/deploy/$script /srv/scripts/" >&2
+  fi
+done
