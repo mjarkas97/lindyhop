@@ -63,4 +63,4 @@ compose up -d --build --remove-orphans
 docker image prune -f >/dev/null
 
 compose ps
-echo "$PROJECT_NAME is running on 127.0.0.1:${PORT:-9930}."
+echo "$PROJECT_NAME is running on ${BIND_ADDR:-127.0.0.1}:${PORT:-9930}, ORIGIN=$ORIGIN."

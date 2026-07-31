@@ -4,11 +4,12 @@ services:
       context: .
       dockerfile: apps/web/Dockerfile
     restart: unless-stopped
-    # Loopback only: the reverse proxy on the same host is the one client, and it
-    # is this mapping — not a HOST variable — that keeps the app off the network.
+    # Loopback by default: the reverse proxy on the same host is the one client,
+    # and it is this mapping — not a HOST variable — that keeps the app off the
+    # network. Set BIND_ADDR=0.0.0.0 to reach it directly by the server's IP.
     # Inside the container it always binds 0.0.0.0:3000.
     ports:
-      - "127.0.0.1:${PORT:-9930}:3000"
+      - "${BIND_ADDR:-127.0.0.1}:${PORT:-9930}:3000"
     environment:
       # Must be the externally visible URL, or adapter-node rejects every POST.
       ORIGIN: ${ORIGIN:?set ORIGIN in the --env-file}

@@ -65,16 +65,45 @@ Nothing in the image needs a C toolchain either — SQLite is built into Node as
 ```sh
 ORIGIN=https://lindyhop.example.com
 PORT=9930
+BIND_ADDR=127.0.0.1
 BODY_SIZE_LIMIT=1073741824
 ```
 
 `lindyhop-deploy` passes it to `docker compose --env-file`, so these are compose
-variables. `PORT` picks the published host port; the container always listens on
-3000 internally.
+variables. `PORT` and `BIND_ADDR` pick the published host address; the container
+always listens on `0.0.0.0:3000` internally.
 
 `ORIGIN` must be the URL the browser actually uses. adapter-node compares it
 against the `Origin` header on every POST, so a wrong value fails only at login,
 with "Cross-site POST form submissions are forbidden".
+
+### Reaching it by IP, without a proxy
+
+`ORIGIN` is a URL, never a bind address — `0.0.0.0` is not a valid value for it.
+Exposing the app on the network takes both halves:
+
+```sh
+BIND_ADDR=0.0.0.0
+ORIGIN=http://192.0.2.10:9930   # scheme, IP and port; no trailing slash
+```
+
+Then `sudo /srv/scripts/lindyhop-deploy /srv/vhosts/lindyhop` to republish the port.
+
+Two things to know before leaving it that way:
+
+- **The session cookie stops being `Secure`.** `SECURE_COOKIES` in
+  `apps/web/src/lib/server/env.ts` is derived from whether `ORIGIN` starts with
+  `https://` — it has to be, or the browser would discard a Secure cookie sent over
+  plain http and login would appear to silently fail. On `http://` the login POST
+  and the session cookie both cross the network in the clear.
+- **A published Docker port bypasses ufw.** Docker inserts its own iptables rules
+  ahead of the INPUT chain, so a `deny incoming` default policy does not cover it.
+  Restrict it with `BIND_ADDR` set to a specific interface, or with a `DOCKER-USER`
+  chain rule.
+
+Fine for testing on a trusted LAN. For anything reachable from the internet, put
+the reverse proxy back in front, set `BIND_ADDR=127.0.0.1` and give `ORIGIN` the
+`https://` name.
 
 `BODY_SIZE_LIMIT` must be raised — adapter-node's default is 512 KB, which rejects
 every real video.
