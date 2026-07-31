@@ -2,9 +2,9 @@
 # Goes in the bare repo at /srv/repositories/lindyhop.git/hooks/post-receive
 #
 # `set -e` is the important part: without it a failed checkout does not stop the
-# deploy, and the app gets reloaded over a tree that was never updated. That is
-# what happened on the deploy that produced "Permission denied" and then went on
-# to run npm, fail, and reload PM2 regardless.
+# deploy, and the image gets rebuilt from a tree that was never updated. That is
+# what happened on the deploy that produced "Permission denied" on the checkout
+# and then went on to build and restart regardless.
 
 set -euo pipefail
 
@@ -16,8 +16,8 @@ BRANCH=master
 # read it directly rather than through a pipe that later steps also want.
 sudo /srv/scripts/lindyhop-checkout "$BARE_REPO" "$WORKING_DIR" "$BRANCH"
 
-# helper installs and builds; deploy starts or reloads PM2.
-sudo /srv/scripts/lindyhop-helper "$WORKING_DIR"
+# deploy builds the image and starts the container. There is no separate install
+# or build step on the host any more — both happen inside the Dockerfile.
 sudo /srv/scripts/lindyhop-deploy "$WORKING_DIR"
 
 echo "Deploy finished."

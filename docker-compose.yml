@@ -1,0 +1,30 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    # Loopback only: the reverse proxy on the same host is the one client, and it
+    # is this mapping — not a HOST variable — that keeps the app off the network.
+    # Inside the container it always binds 0.0.0.0:3000.
+    ports:
+      - "127.0.0.1:${PORT:-9930}:3000"
+    environment:
+      # Must be the externally visible URL, or adapter-node rejects every POST.
+      ORIGIN: ${ORIGIN:?set ORIGIN in the --env-file}
+      # adapter-node defaults to 512K, which rejects every real video.
+      BODY_SIZE_LIMIT: ${BODY_SIZE_LIMIT:-1073741824}
+    volumes:
+      # The whole point: the database and the videos outlive any image rebuild.
+      # A bind mount overrides the Dockerfile's `chown node:node /data`, so the
+      # host directory has to be owned by uid 1000 — lindyhop-deploy sees to it.
+      - /srv/data/lindyhop/data:/data
+    # Hits an endpoint that actually queries the database, so a container that
+    # booted but cannot open /data reports unhealthy instead of quietly accepting
+    # requests. No curl in the slim image; node's fetch does the job.
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3

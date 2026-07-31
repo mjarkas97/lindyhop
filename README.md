@@ -26,43 +26,51 @@ pnpm --filter @lindyhop/web typecheck
 
 Data lands in `apps/web/.data/` when `DATABASE_PATH` / `VIDEO_DIR` are unset.
 
-**Needs Node ≥ 23.4** for the flagless `node:sqlite` import. `engine-strict` is on,
-so an older Node makes `pnpm install` refuse rather than failing later with an
-unresolved-module error.
+**Local development needs Node ≥ 23.4** for the flagless `node:sqlite` import.
+`engine-strict` is on, so an older Node makes `pnpm install` refuse rather than
+failing later with an unresolved-module error. The server has no such requirement —
+it only needs Docker, and the image pins its own Node.
 
 The first account to register becomes the admin, and can close registration from
 `/admin`.
 
 ## Deploying
 
-Push to the server's bare repo; a `post-receive` hook checks out, builds and reloads
-under PM2. Scripts and setup are in [`deploy/`](deploy/README.md).
+Runs as a Docker container. Push to the server's bare repo; a `post-receive` hook
+checks out, builds the image and starts it. Scripts and setup are in
+[`deploy/`](deploy/README.md).
 
 ```sh
-git push origin master
+git push production master
 ```
 
-The app listens on plain HTTP; a reverse proxy in front of it terminates TLS.
-**`ORIGIN` must match the URL the browser actually uses** — adapter-node compares it
-against the `Origin` header on every POST, so a wrong value breaks login with
-"Cross-site POST form submissions are forbidden".
+`origin` is GitHub and is only a mirror — GitHub does not run `post-receive` hooks.
+
+The container publishes plain HTTP on `127.0.0.1:9930`; a reverse proxy in front of
+it terminates TLS. **`ORIGIN` must match the URL the browser actually uses** —
+adapter-node compares it against the `Origin` header on every POST, so a wrong value
+breaks login with "Cross-site POST form submissions are forbidden".
 
 ## Your data
 
 ```
-/srv/data/lindyhop/lindyhop.db   SQLite database — users, sessions, entries
-/srv/data/lindyhop/videos/       one file per uploaded video
-/srv/data/lindyhop/lindyhop.env  deployment configuration
+/srv/data/lindyhop/data/lindyhop.db   SQLite database — users, sessions, entries
+/srv/data/lindyhop/data/videos/       one file per uploaded video
+/srv/data/lindyhop/lindyhop.env       deployment configuration
 ```
 
-All outside the working tree, so a deploy never touches it. To back up, stop the
-app first — SQLite in WAL mode leaves `-wal` and `-shm` files that must travel with
-the database:
+`data/` is bind-mounted into the container at `/data`, so rebuilding the image
+never touches it. `lindyhop.env` sits beside it rather than inside it, out of the
+container's reach. Both are outside the working tree, so a deploy's `git checkout -f`
+leaves them alone.
+
+To back up, stop the container first — SQLite in WAL mode leaves `-wal` and `-shm`
+files that must travel with the database:
 
 ```sh
-pm2 stop lindyhop
+docker compose -p lindyhop stop
 tar czf lindyhop-backup.tar.gz -C /srv/data/lindyhop .
-pm2 start lindyhop
+docker compose -p lindyhop start
 ```
 
 ## Configuration
@@ -72,11 +80,12 @@ Set in `/srv/data/lindyhop/lindyhop.env`.
 | Variable | Default | |
 |---|---|---|
 | `ORIGIN` | — | **Required.** Public URL, exactly as the browser sees it. |
-| `PORT` | `9930` | Port the app listens on. |
-| `HOST` | `0.0.0.0` | Set `127.0.0.1` when a proxy on the same host is the only client. |
+| `PORT` | `9930` | Host port, published on `127.0.0.1` only. The container always listens on 3000. |
 | `BODY_SIZE_LIMIT` | `1073741824` | Max upload in bytes. adapter-node's own default is 512 KB, which rejects every real video. |
-| `DATABASE_PATH` | `/data/lindyhop.db` | |
-| `VIDEO_DIR` | `/data/videos` | |
+
+`DATABASE_PATH` and `VIDEO_DIR` are pinned by the Dockerfile to `/data/lindyhop.db`
+and `/data/videos`; the bind mount decides where they land on the host. They only
+need setting when running outside a container.
 
 ## License
 

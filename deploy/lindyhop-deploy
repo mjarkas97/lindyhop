@@ -1,32 +1,25 @@
 #!/bin/bash
-# Start or reload the app under PM2.
+# Build the image and (re)start the container. Run by post-receive after the
+# checkout.
 #
 #   lindyhop-deploy /srv/vhosts/lindyhop
 #
-# The original ran `pm2 start npm -- run start`, which cannot work: the root
-# package.json has no `start` script — only apps/web does. PM2 now runs the
-# adapter-node output directly, which also drops an npm process from the tree.
+# The host needs Docker and nothing else. Everything this used to depend on —
+# a Node new enough for node:sqlite, corepack, a PM2 daemon owned by the right
+# user — is pinned inside the image now.
 
 set -euo pipefail
 
 PROJECT_DIR=$1
 PROJECT_NAME=lindyhop
-ENTRY="$PROJECT_DIR/apps/web/dist/index.js"
-
-# PM2 keeps its process list per user, under $HOME/.pm2. The apps run under
-# www-data, and post-receive calls this script through sudo as root — so plain
-# `pm2` here would talk to root's daemon, which knows nothing about them.
-PM2_USER=www-data
 
 # Deployment configuration lives outside the working directory on purpose:
-# `git checkout -f` and the chown/chmod in lindyhop-helper would otherwise clobber
-# it on every deploy.
+# `git checkout -f` would otherwise clobber it on every deploy.
 ENV_FILE=/srv/data/lindyhop/lindyhop.env
 
-if [ ! -f "$ENTRY" ]; then
-  echo "No build at $ENTRY — did lindyhop-helper run?" >&2
-  exit 1
-fi
+# The bind mount target. A subdirectory of /srv/data/lindyhop, so lindyhop.env
+# next to it stays out of reach of the container.
+DATA_DIR=/srv/data/lindyhop/data
 
 if [ ! -f "$ENV_FILE" ]; then
   echo "Missing $ENV_FILE. See deploy/README.md." >&2
@@ -38,38 +31,36 @@ set -a
 . "$ENV_FILE"
 set +a
 
-# Fail here rather than after the app is already serving. ORIGIN in particular is
-# silent until someone tries to log in: adapter-node rejects every POST whose
-# Origin does not match, so a wrong value looks like a broken login form.
+# Fail here rather than after the app is already serving. ORIGIN is silent until
+# someone tries to log in: adapter-node rejects every POST whose Origin does not
+# match, so a wrong value looks like a broken login form.
 : "${ORIGIN:?must be set in $ENV_FILE — the public URL, exactly as the browser sees it}"
-: "${DATABASE_PATH:?must be set in $ENV_FILE}"
-: "${VIDEO_DIR:?must be set in $ENV_FILE}"
 
-# sudo clears the environment, so every variable is passed through explicitly.
-run_pm2() {
-  sudo -u "$PM2_USER" env \
-    ORIGIN="$ORIGIN" \
-    PORT="${PORT:-9930}" \
-    HOST="${HOST:-0.0.0.0}" \
-    DATABASE_PATH="$DATABASE_PATH" \
-    VIDEO_DIR="$VIDEO_DIR" \
-    BODY_SIZE_LIMIT="${BODY_SIZE_LIMIT:-1073741824}" \
-    NODE_ENV=production \
-    pm2 "$@"
+# A bind mount ignores the Dockerfile's `chown node:node /data` — the host
+# directory's ownership is what the container sees, and it runs as uid 1000.
+# Without this the container boots and then fails its healthcheck on a database
+# it cannot write.
+echo "Preparing $DATA_DIR ..."
+mkdir -p "$DATA_DIR/videos"
+chown -R 1000:1000 "$DATA_DIR"
+
+echo "Building and starting $PROJECT_NAME ..."
+
+# --env-file rather than a service-level env_file: PORT is interpolated at the
+# compose level to pick the published host port, which env_file cannot reach.
+compose() {
+  docker compose \
+    --env-file "$ENV_FILE" \
+    --file "$PROJECT_DIR/docker-compose.yml" \
+    --project-name "$PROJECT_NAME" \
+    "$@"
 }
 
-echo "Restarting $PROJECT_NAME as $PM2_USER ..."
+compose up -d --build --remove-orphans
 
-# Delete and recreate rather than reload. A reload re-runs whatever the existing
-# entry was defined as — and the entry this replaces was `pm2 start npm -- run
-# start`, which would come straight back. Recreating makes the deploy
-# deterministic regardless of what is registered. There is no zero-downtime to
-# lose: this is a single fork-mode process.
-run_pm2 delete "$PROJECT_NAME" >/dev/null 2>&1 || true
-run_pm2 start "$ENTRY" --name "$PROJECT_NAME" --update-env
+# Layers from the previous build are unreferenced now and would accumulate on
+# every deploy.
+docker image prune -f >/dev/null
 
-# Persist the process list so it survives a reboot.
-run_pm2 save
-
-run_pm2 describe "$PROJECT_NAME" | grep -E 'status|script path|pid' || true
-echo "$PROJECT_NAME is running."
+compose ps
+echo "$PROJECT_NAME is running on 127.0.0.1:${PORT:-9930}."
