@@ -13,6 +13,9 @@ export default defineConfig({
   plugins: [sveltekit()],
   test: {
     include: ['src/**/*.test.ts'],
+    // One test file at a time: they all talk to the same SQLite file, and two
+    // workers resetting and writing it at once fail with "database is locked".
+    fileParallelism: false,
     // Points the database and video dir at a throwaway directory, so a test run
     // can never touch a real .data/ or /data.
     env: {

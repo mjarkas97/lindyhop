@@ -1,6 +1,7 @@
 <script lang="ts">
   import Highlight from './Highlight.svelte'
   import Icon from './Icon.svelte'
+  import { relativeDay } from '$lib/day'
   import { ART_LABELS } from '$lib/shared/entry'
   import type { Entry } from '$lib/api/entries'
 
@@ -37,6 +38,13 @@
       />
     </span>
   </div>
+
+  <!-- Your own practice, on your entries and on other people's alike. -->
+  {#if entry.practice_count > 0 && entry.last_practiced_at !== null}
+    <p class="card__practice">
+      {entry.practice_count}× geübt · zuletzt {relativeDay(entry.last_practiced_at)}
+    </p>
+  {/if}
 
   {#if entry.note}
     <p class="card__note"><Highlight text={entry.note} query={search} lines={2} /></p>
@@ -114,6 +122,13 @@
       height: 2.25rem;
       border-radius: 999px;
       background: $color-background;
+    }
+
+    &__practice {
+      margin: 0.75rem 0 0;
+      color: $color-accent;
+      font-size: 0.75rem;
+      font-weight: 600;
     }
 
     &__note {

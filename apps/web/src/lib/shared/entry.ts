@@ -14,9 +14,9 @@ export const ART_LABELS: Record<Art, string> = {
 export const TAKTZAHL_VALUES = [4, 6, 8, 10] as const
 export type Taktzahl = (typeof TAKTZAHL_VALUES)[number]
 
-export type SortOrder = 'newest' | 'oldest' | 'name' | 'taktzahl'
+export type SortOrder = 'newest' | 'oldest' | 'name' | 'taktzahl' | 'practice'
 
-export const SORT_VALUES: SortOrder[] = ['newest', 'oldest', 'name', 'taktzahl']
+export const SORT_VALUES: SortOrder[] = ['newest', 'oldest', 'name', 'taktzahl', 'practice']
 
 export interface Entry {
   id:             number
@@ -30,6 +30,9 @@ export interface Entry {
   note:           string
   is_public:      boolean
   created_at:     number
+  /** Both count the viewer's own practices, never the owner's. */
+  practice_count:     number
+  last_practiced_at:  number | null
 }
 
 export interface EntryInput {

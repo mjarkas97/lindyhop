@@ -44,6 +44,22 @@ const MIGRATIONS: string[] = [
     value TEXT NOT NULL
   );
   `,
+
+  // One row per practice. `user_id` is whoever practiced, not the entry's owner:
+  // a public entry can be practiced by anyone who can read it, and each of them
+  // sees only their own history and counts.
+  `
+  CREATE TABLE practice_sessions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL REFERENCES users(id)   ON DELETE CASCADE,
+    entry_id     INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
+    practiced_at INTEGER NOT NULL,
+    note         TEXT    NOT NULL DEFAULT ''
+  );
+
+  CREATE INDEX idx_practice_user  ON practice_sessions(user_id, practiced_at DESC);
+  CREATE INDEX idx_practice_entry ON practice_sessions(entry_id, user_id);
+  `,
 ]
 
 /**

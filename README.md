@@ -4,6 +4,10 @@ Self-hosted Lindy Hop practice log. Each user keeps their own entries — moves,
 sequences and choreographies, each with an optional video — and can mark any of
 them public so everyone else on the instance can see it.
 
+Practices are logged against an entry, your own or anyone's public one, and roll up
+into a history with a streak and a "lange nicht geübt" sort on the dashboard. Your
+practice log is yours alone: the owner of a shared entry never sees who drilled it.
+
 German UI, dark theme, installable as a PWA.
 
 ## Stack
@@ -58,7 +62,7 @@ against the `Origin` header on every POST, so a wrong value breaks login with
 ## Your data
 
 ```
-/srv/data/lindyhop/data/lindyhop.db   SQLite database — users, sessions, entries
+/srv/data/lindyhop/data/lindyhop.db   SQLite database — users, sessions, entries, practices
 /srv/data/lindyhop/data/videos/       one file per uploaded video
 /srv/data/lindyhop/lindyhop.env       deployment configuration
 ```

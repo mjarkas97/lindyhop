@@ -52,19 +52,47 @@ const SORT_CLAUSE: Record<SortOrder, string> = {
   oldest:   'e.created_at ASC',
   name:     'LOWER(e.name) ASC',
   taktzahl: 'e.taktzahl ASC, e.created_at DESC',
+  // Never practised counts as longest ago, so those come first.
+  practice: 'COALESCE(p.last_practiced_at, 0) ASC, e.created_at DESC',
 }
 
 const COLUMNS = `
   e.id, e.user_id, e.name, e.art, e.taktzahl, e.video_uri, e.tags, e.note,
-  e.is_public, e.created_at, u.username AS owner_username
+  e.is_public, e.created_at, u.username AS owner_username,
+  p.practice_count, p.last_practiced_at
 `
 
-interface EntryRow extends Omit<Entry, 'is_public'> {
+/**
+ * The practice totals are the *viewer's* own, never the owner's — two people
+ * looking at the same public entry see their own counts.
+ *
+ * The subquery's `?` binds before anything in the WHERE clause, so every caller
+ * has to pass the viewer's id as the first parameter.
+ */
+const FROM = `
+  FROM entries e
+  JOIN users u ON u.id = e.user_id
+  LEFT JOIN (
+    SELECT entry_id, COUNT(*) AS practice_count, MAX(practiced_at) AS last_practiced_at
+      FROM practice_sessions
+     WHERE user_id = ?
+     GROUP BY entry_id
+  ) p ON p.entry_id = e.id
+`
+
+interface EntryRow extends Omit<Entry, 'is_public' | 'practice_count'> {
   is_public: number
+  /** NULL for an entry the viewer has never practised — that is what the LEFT JOIN yields. */
+  practice_count: number | null
 }
 
 function toEntry(row: EntryRow): Entry {
-  return { ...row, is_public: row.is_public === 1 }
+  return {
+    ...row,
+    is_public: row.is_public === 1,
+    practice_count: row.practice_count ?? 0,
+    last_practiced_at: row.last_practiced_at ?? null,
+  }
 }
 
 export interface ListOptions {
@@ -76,7 +104,8 @@ export interface ListOptions {
 
 export function listEntries(userId: number, opts: ListOptions = {}): Entry[] {
   const where: string[] = []
-  const params: Param[] = []
+  // First, before any WHERE parameter: this one belongs to the practice subquery.
+  const params: Param[] = [userId]
 
   if (opts.scope === 'public') {
     where.push('e.is_public = 1')
@@ -99,8 +128,7 @@ export function listEntries(userId: number, opts: ListOptions = {}): Entry[] {
 
   const rows = queryAll<EntryRow>(
     `SELECT ${COLUMNS}
-       FROM entries e
-       JOIN users u ON u.id = e.user_id
+     ${FROM}
       WHERE ${where.join(' AND ')}
       ORDER BY ${SORT_CLAUSE[opts.sort ?? 'newest']}`,
     ...params
@@ -117,9 +145,9 @@ export function listEntries(userId: number, opts: ListOptions = {}): Entry[] {
 export function getEntry(id: number, userId: number): Entry | null {
   const row = queryOne<EntryRow>(
     `SELECT ${COLUMNS}
-       FROM entries e
-       JOIN users u ON u.id = e.user_id
+     ${FROM}
       WHERE e.id = ? AND (e.user_id = ? OR e.is_public = 1)`,
+    userId,
     id,
     userId
   )
@@ -131,9 +159,9 @@ export function getEntry(id: number, userId: number): Entry | null {
 export function getOwnedEntry(id: number, userId: number): Entry | null {
   const row = queryOne<EntryRow>(
     `SELECT ${COLUMNS}
-       FROM entries e
-       JOIN users u ON u.id = e.user_id
+     ${FROM}
       WHERE e.id = ? AND e.user_id = ?`,
+    userId,
     id,
     userId
   )

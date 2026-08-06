@@ -3,14 +3,20 @@
   import { page } from '$app/state'
   import EntryForm from '$lib/components/EntryForm.svelte'
   import Icon from '$lib/components/Icon.svelte'
+  import PracticeLogger from '$lib/components/PracticeLogger.svelte'
   import { deleteEntry, getEntry, updateEntry, type Entry, type EntryInput } from '$lib/api/entries'
+  import { listPractice, type PracticeSession } from '$lib/api/practice'
+  import { dayHeading } from '$lib/day'
   import { reload } from '$lib/stores/entries'
   import { user } from '$lib/stores/user'
   import { ART_LABELS } from '$lib/shared/entry'
   import { videoUrl } from '$lib/api/videos'
 
+  const RECENT = 10
+
   let entry = $state<Entry | null>(null)
   let loaded = $state(false)
+  let sessions = $state<PracticeSession[]>([])
 
   // Abandoned and replaced videos are the server's problem now — it drops the old
   // file on save and sweeps uploads that never got attached.
@@ -20,7 +26,12 @@
       entry = found
       loaded = true
     })
+    void loadSessions(id)
   })
+
+  async function loadSessions(id: number) {
+    sessions = await listPractice(id)
+  }
 
   // A public entry is readable by everyone but editable only by its author, so
   // the form is withheld until we know which of the two this is.
@@ -37,6 +48,14 @@
     await deleteEntry(entry.id)
     reload()
     await goto('/')
+  }
+
+  // The dashboard shows practice counts and can be sorted by them, so it has to
+  // be told as well, not just this page's own list.
+  async function logged() {
+    if (!entry) return
+    await loadSessions(entry.id)
+    reload()
   }
 
   async function save(values: EntryInput) {
@@ -65,44 +84,68 @@
   <p class="notice">Lädt …</p>
 {:else if !entry}
   <p class="notice">Eintrag nicht gefunden.</p>
-{:else if isOwner}
-  <EntryForm
-    initial={{
-      name: entry.name,
-      art: entry.art,
-      taktzahl: entry.taktzahl,
-      video_uri: entry.video_uri,
-      tags: entry.tags,
-      note: entry.note,
-      is_public: entry.is_public,
-    }}
-    submitLabel="Änderungen speichern"
-    onsubmit={save}
-  />
 {:else}
-  <article class="view">
-    <p class="view__owner">Geteilt von {entry.owner_username}</p>
-    <h2 class="view__name">{entry.name}</h2>
+  <!-- Above the owner split on purpose: an owner sees only the form below and a
+       visitor only the read view, so anything inside either branch would be
+       missing for half the people who can practise this entry. -->
+  <section class="practice">
+    <PracticeLogger entryId={entry.id} onlogged={logged} />
 
-    <p class="view__meta">{ART_LABELS[entry.art]} · {entry.taktzahl} Takte</p>
-
-    {#if entry.video_uri}
-      <!-- svelte-ignore a11y_media_has_caption -->
-      <video class="view__video" src={videoUrl(entry.video_uri)} controls playsinline></video>
-    {/if}
-
-    {#if entry.tags}
-      <div class="view__tags">
-        {#each entry.tags.split(',') as tag}
-          <span class="view__tag">{tag.trim()}</span>
+    {#if sessions.length > 0}
+      <h2 class="practice__title">Zuletzt geübt</h2>
+      <ul class="practice__list">
+        {#each sessions.slice(0, RECENT) as session (session.id)}
+          <li class="practice__item">
+            <span class="practice__when">{dayHeading(session.practiced_at)}</span>
+            {#if session.note}<span class="practice__note">{session.note}</span>{/if}
+          </li>
         {/each}
-      </div>
+      </ul>
+      {#if sessions.length > RECENT}
+        <a class="practice__more" href="/practice">Ganze Historie ({sessions.length})</a>
+      {/if}
     {/if}
+  </section>
 
-    {#if entry.note}
-      <p class="view__note">{entry.note}</p>
-    {/if}
-  </article>
+  {#if isOwner}
+    <EntryForm
+      initial={{
+        name: entry.name,
+        art: entry.art,
+        taktzahl: entry.taktzahl,
+        video_uri: entry.video_uri,
+        tags: entry.tags,
+        note: entry.note,
+        is_public: entry.is_public,
+      }}
+      submitLabel="Änderungen speichern"
+      onsubmit={save}
+    />
+  {:else}
+    <article class="view">
+      <p class="view__owner">Geteilt von {entry.owner_username}</p>
+      <h2 class="view__name">{entry.name}</h2>
+
+      <p class="view__meta">{ART_LABELS[entry.art]} · {entry.taktzahl} Takte</p>
+
+      {#if entry.video_uri}
+        <!-- svelte-ignore a11y_media_has_caption -->
+        <video class="view__video" src={videoUrl(entry.video_uri)} controls playsinline></video>
+      {/if}
+
+      {#if entry.tags}
+        <div class="view__tags">
+          {#each entry.tags.split(',') as tag}
+            <span class="view__tag">{tag.trim()}</span>
+          {/each}
+        </div>
+      {/if}
+
+      {#if entry.note}
+        <p class="view__note">{entry.note}</p>
+      {/if}
+    </article>
+  {/if}
 {/if}
 
 <style lang="scss">
@@ -140,6 +183,57 @@
     padding: 2rem 1.25rem;
     text-align: center;
     color: $color-text-secondary;
+  }
+
+  .practice {
+    margin: 0 1.25rem 1.5rem;
+
+    &__title {
+      margin: 1.25rem 0 0.5rem;
+      color: $color-text-muted;
+      font-size: 0.625rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+    }
+
+    &__list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    &__item {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid $color-border;
+      font-size: 0.8125rem;
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+
+    &__when {
+      flex: none;
+      font-weight: 600;
+    }
+
+    &__note {
+      min-width: 0;
+      color: $color-text-secondary;
+      overflow-wrap: anywhere;
+    }
+
+    &__more {
+      display: inline-block;
+      margin-top: 0.75rem;
+      color: $color-accent;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
   }
 
   .view {

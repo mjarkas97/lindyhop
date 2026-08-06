@@ -34,15 +34,19 @@ and a top-level `mkdir` writes to the data volume at build time.
 ## Data model
 
 ```sql
-users    (id, username UNIQUE, password_hash, is_admin, created_at)
-sessions (id = sha256(token), user_id, expires_at)
-entries  (id, user_id, name, art, taktzahl, video_uri, tags, note, is_public, created_at)
+users             (id, username UNIQUE, password_hash, is_admin, created_at)
+sessions          (id = sha256(token), user_id, expires_at)
+entries           (id, user_id, name, art, taktzahl, video_uri, tags, note, is_public, created_at)
+practice_sessions (id, user_id, entry_id, practiced_at, note)
 ```
 
 - `art` ∈ `choreography | sequence | figur | solo`, `taktzahl` ∈ `4 | 6 | 8 | 10` —
   both in `src/lib/shared/entry.ts` with the German labels
 - `tags` is a comma-separated string, not a table — carried over deliberately
 - `video_uri` is a bare `<uuid>.<ext>` filename under `VIDEO_DIR`
+- `practice_sessions.user_id` is **who practised**, not the entry's owner — you may log
+  a practice on anything you can read, so two people can have their own history on the
+  same public entry
 - Migrations: append to the `MIGRATIONS` array in `src/lib/server/db/schema.ts`,
   never edit a step that has already run
 
@@ -51,7 +55,12 @@ entries  (id, user_id, name, art, taktzahl, video_uri, tags, note, is_public, cr
 - `src/lib/server/db/index.ts` — singleton, WAL, `queryAll`/`queryOne` (the only
   place `node:sqlite`'s loose row types are cast), `transaction()`
 - `src/lib/server/auth.ts` — argon2, sessions, `validateCredentials`
-- `src/lib/server/entries.ts` — all entry SQL plus `parseEntryInput`
+- `src/lib/server/entries.ts` — all entry SQL plus `parseEntryInput`. Every read joins
+  the viewer's own practice totals; the subquery's `?` binds *before* the WHERE
+  parameters, so the viewer id goes first
+- `src/lib/server/practice.ts` — practice SQL plus `parsePracticeInput`
+- `src/lib/day.ts` — local-day maths (grouping, streak, "vor 3 Tagen"). The server
+  stores plain epoch ms and never groups by day, because SQLite would do it in UTC
 - `src/lib/server/videos.ts` — filename validation, read authz, orphan sweep
 - `src/lib/api/*` — client mirrors; `entries.ts` keeps the exact signatures the old
   OPFS query module had, which is why the components barely changed
@@ -61,6 +70,8 @@ entries  (id, user_id, name, art, taktzahl, video_uri, tags, note, is_public, cr
 ## Authorization rules
 
 - Read an entry: owner **or** `is_public`. Write: owner only.
+- Log a practice on it: anything you can read. Read or delete a practice row: only the
+  user who logged it — even the entry's owner cannot see it.
 - Someone else's entry answers **404, never 403** — a 403 confirms the id exists.
 - A video is readable only through an entry that references it. An uploaded but
   unattached file is readable by nobody, including its uploader.

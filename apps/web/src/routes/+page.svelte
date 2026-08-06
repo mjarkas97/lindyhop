@@ -10,6 +10,7 @@
     { value: 'oldest',   label: 'Älteste' },
     { value: 'name',     label: 'Name A-Z' },
     { value: 'taktzahl', label: 'Takte' },
+    { value: 'practice', label: 'Lange nicht geübt' },
   ]
 
   let search = $state('')
@@ -34,6 +35,9 @@
     <h1 class="head__title">Deine Einträge</h1>
   </div>
   <div class="head__actions">
+    <a class="head__action" href="/practice" aria-label="Übungshistorie">
+      <Icon name="calendar" color="#a3a3a3" />
+    </a>
     <a class="head__action" href="/discover" aria-label="Entdecken">
       <Icon name="globe" color="#a3a3a3" />
     </a>
