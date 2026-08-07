@@ -14,6 +14,15 @@ export const ART_LABELS: Record<Art, string> = {
 export const TAKTZAHL_VALUES = [4, 6, 8, 10] as const
 export type Taktzahl = (typeof TAKTZAHL_VALUES)[number]
 
+/**
+ * A Figur or a Sequenz is a few bars long. A Choreographie or a Solo is a whole
+ * routine with no single bar count, and stores `null` instead. The one place
+ * that decides this — never test the art inline.
+ */
+export function hasTaktzahl(art: Art): boolean {
+  return art === 'figur' || art === 'sequence'
+}
+
 export type SortOrder = 'newest' | 'oldest' | 'name' | 'taktzahl' | 'practice'
 
 export const SORT_VALUES: SortOrder[] = ['newest', 'oldest', 'name', 'taktzahl', 'practice']
@@ -24,7 +33,7 @@ export interface Entry {
   owner_username: string
   name:           string
   art:            Art
-  taktzahl:       Taktzahl
+  taktzahl:       Taktzahl | null
   video_uri:      string | null
   tags:           string
   note:           string
@@ -38,7 +47,7 @@ export interface Entry {
 export interface EntryInput {
   name:      string
   art:       Art
-  taktzahl:  Taktzahl
+  taktzahl:  Taktzahl | null
   video_uri: string | null
   tags:      string
   note:      string

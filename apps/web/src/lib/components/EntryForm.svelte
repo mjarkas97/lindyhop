@@ -6,6 +6,7 @@
     ART_LABELS,
     ART_VALUES,
     TAKTZAHL_VALUES,
+    hasTaktzahl,
     type Art,
     type Taktzahl,
   } from '$lib/shared/entry'
@@ -33,9 +34,16 @@
   // seed is never empty-then-late.
   const seed = untrack(() => initial) ?? {}
 
+  const DEFAULT_TAKTZAHL = 8
+  const seedArt: Art = seed.art ?? 'figur'
+
   let name = $state(seed.name ?? '')
-  let art = $state<Art>(seed.art ?? 'figur')
-  let taktzahl = $state<Taktzahl>(seed.taktzahl ?? 8)
+  let art = $state<Art>(seedArt)
+  // Derived from the art, not just copied: a new Figur needs a number to submit,
+  // and a Choreographie must not carry one even if the seed still has one.
+  let taktzahl = $state<Taktzahl | null>(
+    hasTaktzahl(seedArt) ? (seed.taktzahl ?? DEFAULT_TAKTZAHL) : null
+  )
   let videoUri = $state<string | null>(seed.video_uri ?? null)
   let tags = $state(seed.tags ?? '')
   let note = $state(seed.note ?? '')
@@ -62,6 +70,13 @@
       })
       .slice(0, MAX_SUGGESTIONS)
   })
+
+  // The two have to move together: switching to an art without bars clears the
+  // number, switching back brings one so the chips are never rendered empty.
+  function pickArt(next: Art) {
+    art = next
+    taktzahl = hasTaktzahl(next) ? (taktzahl ?? DEFAULT_TAKTZAHL) : null
+  }
 
   function pickTag(tag: string) {
     tags = [...tokens.existingTokens, tag].join(', ') + ', '
@@ -123,13 +138,16 @@
 
     <div class="field">
       <span class="field__label">Art</span>
-      <Segmented options={ART_OPTIONS} value={art} onchange={(next) => (art = next)} />
+      <Segmented options={ART_OPTIONS} value={art} onchange={pickArt} />
     </div>
 
-    <div class="field">
-      <span class="field__label">Taktzahl</span>
-      <Segmented options={TAKT_OPTIONS} value={taktzahl} onchange={(next) => (taktzahl = next)} />
-    </div>
+    <!-- A Choreographie or a Solo runs as long as it runs; there is no one number. -->
+    {#if taktzahl !== null}
+      <div class="field">
+        <span class="field__label">Taktzahl</span>
+        <Segmented options={TAKT_OPTIONS} value={taktzahl} onchange={(next) => (taktzahl = next)} />
+      </div>
+    {/if}
 
     <div class="field">
       <span class="field__label">Sichtbarkeit</span>

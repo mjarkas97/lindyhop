@@ -126,7 +126,10 @@
       <p class="view__owner">Geteilt von {entry.owner_username}</p>
       <h2 class="view__name">{entry.name}</h2>
 
-      <p class="view__meta">{ART_LABELS[entry.art]} · {entry.taktzahl} Takte</p>
+      <!-- The separator belongs to the bar count, or it dangles after the art. -->
+      <p class="view__meta">
+        {ART_LABELS[entry.art]}{entry.taktzahl === null ? '' : ` · ${entry.taktzahl} Takte`}
+      </p>
 
       {#if entry.video_uri}
         <!-- svelte-ignore a11y_media_has_caption -->

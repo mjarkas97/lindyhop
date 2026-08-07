@@ -27,7 +27,9 @@
       <span class="card__name"><Highlight text={entry.name} query={search} lines={1} /></span>
       <div class="card__meta">
         <span class="card__art">{ART_LABELS[entry.art]}</span>
-        <span class="card__takte">{entry.taktzahl} Takte</span>
+        {#if entry.taktzahl !== null}
+          <span class="card__takte">{entry.taktzahl} Takte</span>
+        {/if}
       </div>
     </div>
     <span class="card__badge" data-video={entry.video_uri ? 'true' : 'false'}>

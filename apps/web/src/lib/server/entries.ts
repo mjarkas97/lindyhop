@@ -1,5 +1,13 @@
 import { getDb, queryAll, queryOne, type Param } from './db'
-import { isArt, isTaktzahl, type Entry, type EntryInput, type SortOrder } from '$lib/shared/entry'
+import {
+  hasTaktzahl,
+  isArt,
+  isTaktzahl,
+  type Entry,
+  type EntryInput,
+  type SortOrder,
+  type Taktzahl,
+} from '$lib/shared/entry'
 import { isValidVideoName } from './videos'
 
 export type Scope = 'mine' | 'public'
@@ -21,7 +29,14 @@ export function parseEntryInput(body: unknown): { input: EntryInput } | { error:
   if (name.length > MAX_NAME) return { error: 'Name ist zu lang.' }
 
   if (!isArt(raw.art)) return { error: 'Ungültige Art.' }
-  if (!isTaktzahl(raw.taktzahl)) return { error: 'Ungültige Taktzahl.' }
+
+  // A Choreographie or a Solo has none, and whatever the client sent for one is
+  // dropped rather than rejected — the same coercion `is_public` gets below.
+  let taktzahl: Taktzahl | null = null
+  if (hasTaktzahl(raw.art)) {
+    if (!isTaktzahl(raw.taktzahl)) return { error: 'Ungültige Taktzahl.' }
+    taktzahl = raw.taktzahl
+  }
 
   const videoUri = raw.video_uri
   if (videoUri !== null && (typeof videoUri !== 'string' || !isValidVideoName(videoUri))) {
@@ -36,7 +51,7 @@ export function parseEntryInput(body: unknown): { input: EntryInput } | { error:
     input: {
       name,
       art: raw.art,
-      taktzahl: raw.taktzahl,
+      taktzahl,
       video_uri: videoUri,
       tags,
       note,
@@ -51,7 +66,9 @@ const SORT_CLAUSE: Record<SortOrder, string> = {
   newest:   'e.created_at DESC',
   oldest:   'e.created_at ASC',
   name:     'LOWER(e.name) ASC',
-  taktzahl: 'e.taktzahl ASC, e.created_at DESC',
+  // NULL sorts first in SQLite, which would head a sort named "Takte" with every
+  // entry that has none. They belong at the end instead.
+  taktzahl: 'e.taktzahl IS NULL, e.taktzahl ASC, e.created_at DESC',
   // Never practised counts as longest ago, so those come first.
   practice: 'COALESCE(p.last_practiced_at, 0) ASC, e.created_at DESC',
 }

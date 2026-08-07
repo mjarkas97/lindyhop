@@ -135,6 +135,19 @@ describe('listing entries', () => {
     expect(names).toEqual(['alice public', 'bob public'])
   })
 
+  it('sorts entries without a bar count last under "Takte"', () => {
+    createEntry(alice.id, entry({ name: 'choreo', art: 'choreography', taktzahl: null }))
+    createEntry(alice.id, entry({ name: 'acht', taktzahl: 8 }))
+    createEntry(alice.id, entry({ name: 'vier', taktzahl: 4 }))
+
+    // NULL sorts first in SQLite; the clause has to push it to the end instead.
+    expect(listEntries(alice.id, { sort: 'taktzahl' }).map((e) => e.name)).toEqual([
+      'vier',
+      'acht',
+      'choreo',
+    ])
+  })
+
   it('filters by search across name, tags and note', () => {
     createEntry(alice.id, entry({ name: 'Charleston', tags: 'vintage', note: '' }))
     createEntry(alice.id, entry({ name: 'Swing Out', tags: 'basics', note: 'rock step' }))
@@ -260,6 +273,31 @@ describe('parseEntryInput', () => {
   it('rejects an art or taktzahl outside the vocabulary', () => {
     expect(parseEntryInput({ ...valid, art: 'bogus' })).toHaveProperty('error')
     expect(parseEntryInput({ ...valid, taktzahl: 7 })).toHaveProperty('error')
+  })
+
+  it('requires a taktzahl for a figur and a sequenz', () => {
+    expect(parseEntryInput({ ...valid, art: 'figur', taktzahl: null })).toHaveProperty('error')
+    expect(parseEntryInput({ ...valid, art: 'sequence', taktzahl: null })).toHaveProperty('error')
+    expect(parseEntryInput({ ...valid, art: 'sequence', taktzahl: 6 })).toMatchObject({
+      input: { taktzahl: 6 },
+    })
+  })
+
+  it('takes no taktzahl for a choreographie or a solo', () => {
+    // Neither has a single bar count, so the field simply does not apply.
+    expect(parseEntryInput({ ...valid, art: 'choreography', taktzahl: null })).toMatchObject({
+      input: { taktzahl: null },
+    })
+    expect(parseEntryInput({ ...valid, art: 'solo', taktzahl: null })).toMatchObject({
+      input: { taktzahl: null },
+    })
+  })
+
+  it('drops a taktzahl sent for an art that has none', () => {
+    // An old client, or a hand-rolled request, still sending the number.
+    expect(parseEntryInput({ ...valid, art: 'choreography', taktzahl: 8 })).toMatchObject({
+      input: { taktzahl: null },
+    })
   })
 
   it('rejects a forged video_uri', () => {

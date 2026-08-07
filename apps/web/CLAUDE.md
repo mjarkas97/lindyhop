@@ -42,13 +42,19 @@ practice_sessions (id, user_id, entry_id, practiced_at, note)
 
 - `art` ∈ `choreography | sequence | figur | solo`, `taktzahl` ∈ `4 | 6 | 8 | 10` —
   both in `src/lib/shared/entry.ts` with the German labels
+- `taktzahl` is **NULL for a Choreographie and a Solo**: neither has a single bar
+  count. `hasTaktzahl(art)` decides that in one place, used by `parseEntryInput` and
+  `EntryForm` alike — don't test the art inline
 - `tags` is a comma-separated string, not a table — carried over deliberately
 - `video_uri` is a bare `<uuid>.<ext>` filename under `VIDEO_DIR`
 - `practice_sessions.user_id` is **who practised**, not the entry's owner — you may log
   a practice on anything you can read, so two people can have their own history on the
   same public entry
 - Migrations: append to the `MIGRATIONS` array in `src/lib/server/db/schema.ts`,
-  never edit a step that has already run
+  never edit a step that has already run. They run with **foreign keys off** —
+  SQLite cannot alter a column, so changing one means rebuilding the table, and
+  `DROP TABLE` would otherwise cascade into `practice_sessions`. `migrate()` runs
+  `foreign_key_check` afterwards to prove nothing was orphaned
 
 ## Key files
 
